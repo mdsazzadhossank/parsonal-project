@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   LayoutDashboard, Wallet, TrendingDown, Lock, Plus, Trash2, Eye, EyeOff, Menu, X, 
@@ -6,8 +5,8 @@ import {
   Phone, Building2, Coins, CheckCircle2, Clock, UserCheck, ShoppingBag, Package, 
   AlertCircle, CheckCircle, XCircle, RotateCcw, Cloud, Search
 } from 'lucide-react';
-import { Transaction, TransactionType, VaultItem, AppState, DollarTransaction, Account, AccountType, PersonalDollarUsage, Order, OrderStatus } from './types.ts';
-import { dbService } from './services/api.ts';
+import { Transaction, TransactionType, VaultItem, AppState, DollarTransaction, Account, AccountType, PersonalDollarUsage, Order, OrderStatus } from './types';
+import { dbService } from './services/api';
 
 // --- Sub-components ---
 
