@@ -21,9 +21,17 @@ export const dbService = {
       
       const data = await response.json();
       
-      // Ensure data is an object before spreading
+      // Ensure data is an object before spreading and that arrays exist
       const safeData = (data && typeof data === 'object') ? data : {};
-      const merged = { ...defaultState, ...safeData };
+      const merged: AppState = { 
+        ...defaultState, 
+        ...safeData,
+        transactions: Array.isArray(safeData.transactions) ? safeData.transactions : defaultState.transactions,
+        vault: Array.isArray(safeData.vault) ? safeData.vault : defaultState.vault,
+        dollarTransactions: Array.isArray(safeData.dollarTransactions) ? safeData.dollarTransactions : defaultState.dollarTransactions,
+        accounts: Array.isArray(safeData.accounts) ? safeData.accounts : defaultState.accounts,
+        personalDollarUsage: Array.isArray(safeData.personalDollarUsage) ? safeData.personalDollarUsage : defaultState.personalDollarUsage
+      };
       
       localStorage.setItem('amar_hisab_data', JSON.stringify(merged));
       return merged;
@@ -33,7 +41,16 @@ export const dbService = {
         const saved = localStorage.getItem('amar_hisab_data');
         if (saved) {
           const parsed = JSON.parse(saved);
-          return { ...defaultState, ...(parsed || {}) };
+          const safeData = (parsed && typeof parsed === 'object') ? parsed : {};
+          return { 
+            ...defaultState, 
+            ...safeData,
+            transactions: Array.isArray(safeData.transactions) ? safeData.transactions : defaultState.transactions,
+            vault: Array.isArray(safeData.vault) ? safeData.vault : defaultState.vault,
+            dollarTransactions: Array.isArray(safeData.dollarTransactions) ? safeData.dollarTransactions : defaultState.dollarTransactions,
+            accounts: Array.isArray(safeData.accounts) ? safeData.accounts : defaultState.accounts,
+            personalDollarUsage: Array.isArray(safeData.personalDollarUsage) ? safeData.personalDollarUsage : defaultState.personalDollarUsage
+          };
         }
       } catch (jsonError) {
         console.error("LocalStorage JSON parse failed", jsonError);

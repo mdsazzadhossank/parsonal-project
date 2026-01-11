@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, Wallet, TrendingDown, Lock, Bot, Trash2, Eye, EyeOff, Menu, X, 
-  RefreshCw, TrendingUp, Calculator, CreditCard, Phone, Building2, Coins, 
+  RefreshCw, TrendingUp, CreditCard, Phone, Building2, Coins, 
   ShoppingBag, AlertCircle, CheckCircle, XCircle, Send, KeyRound, LogIn, Cloud
 } from 'lucide-react';
 import { Transaction, TransactionType, VaultItem, AppState, DollarTransaction, Account, AccountType, PersonalDollarUsage } from './types';
@@ -10,7 +10,7 @@ import { getFinancialAdvice } from './services/gemini';
 import { dbService } from './services/api';
 
 // --- CONFIGURATION ---
-const APP_PASSWORD = "admin123"; 
+const APP_PASSWORD = "RoNy..rk101@"; 
 
 const SidebarItem: React.FC<{ 
   icon: React.ReactNode; 
@@ -22,7 +22,7 @@ const SidebarItem: React.FC<{
     onClick={onClick}
     className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${
       active 
-        ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 translate-x-1' 
+        ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
         : 'text-slate-600 hover:bg-blue-50 hover:text-blue-600'
     }`}
   >
@@ -42,11 +42,11 @@ const Card: React.FC<{ title: string; children: React.ReactNode; className?: str
 
 const StatCard: React.FC<{ label: string; value: number; icon: React.ReactNode; color: string; prefix?: string }> = ({ label, value, icon, color, prefix = "৳" }) => (
   <div className={`bg-white p-4 lg:p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center space-x-4 transition-transform hover:scale-[1.02]`}>
-    <div className={`p-3 lg:p-4 rounded-xl ${color} bg-opacity-10 text-${color.split('-')[1]}-600`}>
+    <div className={`p-3 lg:p-4 rounded-xl ${color} bg-opacity-10 text-${color.split('-')[1]}-600 flex-shrink-0`}>
       {icon}
     </div>
-    <div className="overflow-hidden">
-      <p className="text-[10px] lg:text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">{label}</p>
+    <div className="min-w-0 overflow-hidden">
+      <p className="text-[10px] lg:text-xs text-slate-500 font-bold uppercase tracking-wider mb-1 truncate">{label}</p>
       <p className="text-lg lg:text-2xl font-black text-slate-800 truncate">
         {prefix}{(value || 0).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
       </p>
@@ -72,8 +72,6 @@ const App: React.FC = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
-  const [calcAmount, setCalcAmount] = useState<string>('');
-  const [calcRate, setCalcRate] = useState<string>('');
   const [aiQuery, setAiQuery] = useState('');
   const [aiResponse, setAiResponse] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
@@ -93,7 +91,6 @@ const App: React.FC = () => {
         setAccounts(Array.isArray(data.accounts) ? data.accounts : []);
         setDbStatus('connected');
       } catch (e) {
-        console.error("Data fetch error:", e);
         setDbStatus('offline');
       } finally {
         setIsSyncing(false);
@@ -264,7 +261,6 @@ const App: React.FC = () => {
     setAiLoading(false);
   };
 
-  // Memoized calculations for performance and safety
   const stats = useMemo(() => {
     const inc = (transactions || []).filter(t => t.type === TransactionType.INCOME).reduce((s, t) => s + (t.amount || 0), 0);
     const exp = (transactions || []).filter(t => t.type === TransactionType.EXPENSE).reduce((s, t) => s + (t.amount || 0), 0);
@@ -334,7 +330,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col lg:flex-row overflow-hidden">
       {isSyncing && (
         <div className="fixed top-0 left-0 w-full h-1 z-[100] bg-blue-100 overflow-hidden">
           <div className="h-full bg-blue-600 animate-syncProgress w-1/3"></div>
@@ -358,7 +354,7 @@ const App: React.FC = () => {
           <h1 className="text-2xl font-black text-blue-700 flex items-center gap-2"><Wallet className="w-8 h-8" />আমার হিসাব</h1>
           <p className="text-[10px] text-slate-400 mt-2 uppercase tracking-widest font-black">Private Cloud System</p>
         </div>
-        <nav className="flex-1 px-4 py-2 space-y-2 overflow-y-auto">
+        <nav className="flex-1 px-4 py-2 space-y-1 overflow-y-auto">
           <SidebarItem icon={<LayoutDashboard size={18}/>} label="ড্যাশবোর্ড" active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} />
           <SidebarItem icon={<CreditCard size={18}/>} label="অ্যাকাউন্টস" active={activeTab === 'accounts'} onClick={() => { setActiveTab('accounts'); setSidebarOpen(false); }} />
           <SidebarItem icon={<TrendingUp size={18}/>} label="আয়ের তালিকা" active={activeTab === 'income'} onClick={() => { setActiveTab('income'); setSidebarOpen(false); }} />
@@ -374,7 +370,7 @@ const App: React.FC = () => {
           <button onClick={handleLogout} className="w-full flex items-center gap-2 text-rose-500 text-[11px] font-black uppercase p-3 hover:bg-rose-50 rounded-xl transition-colors">
             <XCircle size={16} /> সাইন আউট
           </button>
-          <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 border rounded-lg">
+          <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 border rounded-lg justify-center">
              <Cloud size={14} className={dbStatus === 'connected' ? 'text-emerald-500' : 'text-rose-500'} />
              <span className="text-[10px] font-bold uppercase text-slate-500">{dbStatus}</span>
           </div>
@@ -386,7 +382,7 @@ const App: React.FC = () => {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 p-4 lg:p-8 w-full max-w-[1400px] mx-auto overflow-x-hidden">
+      <main className="flex-1 p-4 lg:p-8 w-full max-w-[1400px] mx-auto overflow-y-auto overflow-x-hidden h-screen scroll-smooth">
         {activeTab === 'dashboard' && (
           <div className="space-y-6 animate-fadeIn">
             <header>
@@ -404,8 +400,8 @@ const App: React.FC = () => {
                 <div className="space-y-3">
                   {transactions.slice(0, 5).map(t => (
                     <div key={t.id} className="flex justify-between items-center p-3 rounded-xl bg-slate-50 border border-slate-100">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${t.type === TransactionType.INCOME ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`p-2 rounded-lg flex-shrink-0 ${t.type === TransactionType.INCOME ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
                           {t.type === TransactionType.INCOME ? <TrendingUp size={16}/> : <TrendingDown size={16}/>}
                         </div>
                         <div className="min-w-0 overflow-hidden">
@@ -413,7 +409,7 @@ const App: React.FC = () => {
                           <p className="text-[9px] text-slate-400 font-bold uppercase truncate">{t.accountName}</p>
                         </div>
                       </div>
-                      <p className={`font-black text-sm lg:text-base whitespace-nowrap ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-rose-600'}`}>৳{t.amount.toLocaleString()}</p>
+                      <p className={`font-black text-sm lg:text-base whitespace-nowrap ml-2 ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-rose-600'}`}>৳{t.amount.toLocaleString()}</p>
                     </div>
                   ))}
                   {transactions.length === 0 && <div className="py-8 text-center text-slate-400 text-xs">কোনো লেনদেন পাওয়া যায়নি</div>}
@@ -421,16 +417,16 @@ const App: React.FC = () => {
               </Card>
               <Card title="অ্যাকাউন্ট ব্যালেন্স">
                 <div className="space-y-3">
-                  {accounts.map(acc => (
+                  {(accounts || []).map(acc => (
                     <div key={acc.id} className="flex justify-between items-center p-3 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors rounded-lg">
                       <div className="flex items-center gap-3">
-                        <div className="text-blue-500 bg-blue-50 p-2 rounded-lg">{getAccountIcon(acc.type)}</div>
-                        <div>
-                          <p className="font-bold text-slate-700 text-xs lg:text-sm">{acc.name}</p>
-                          <p className="text-[9px] text-slate-400 font-bold uppercase">{acc.providerName}</p>
+                        <div className="text-blue-500 bg-blue-50 p-2 rounded-lg flex-shrink-0">{getAccountIcon(acc.type)}</div>
+                        <div className="min-w-0 overflow-hidden">
+                          <p className="font-bold text-slate-700 text-xs lg:text-sm truncate">{acc.name}</p>
+                          <p className="text-[9px] text-slate-400 font-bold uppercase truncate">{acc.providerName}</p>
                         </div>
                       </div>
-                      <p className="font-black text-slate-800 text-sm lg:text-base">৳{getAccountBalance(acc.name).toLocaleString()}</p>
+                      <p className="font-black text-slate-800 text-sm lg:text-base whitespace-nowrap ml-2">৳{getAccountBalance(acc.name).toLocaleString()}</p>
                     </div>
                   ))}
                 </div>
@@ -554,12 +550,12 @@ const App: React.FC = () => {
                 </form>
               </Card>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {accounts.map(acc => (
-                  <div key={acc.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group">
-                    <button onClick={() => deleteAccount(acc.id)} className="absolute top-4 right-4 opacity-0 group-hover:opacity-100"><Trash2 size={16} className="text-slate-300 hover:text-rose-500"/></button>
+                {(accounts || []).map(acc => (
+                  <div key={acc.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group transition-shadow hover:shadow-md">
+                    <button onClick={() => deleteAccount(acc.id)} className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16} className="text-slate-300 hover:text-rose-500"/></button>
                     <div className="flex items-center gap-4 mb-4">
-                      <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl">{getAccountIcon(acc.type)}</div>
-                      <h4 className="font-black text-slate-800">{acc.name}</h4>
+                      <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl flex-shrink-0">{getAccountIcon(acc.type)}</div>
+                      <h4 className="font-black text-slate-800 truncate">{acc.name}</h4>
                     </div>
                     <div className="bg-blue-600 p-4 rounded-2xl text-white">
                       <p className="text-[9px] font-bold opacity-70 uppercase mb-1">ব্যালেন্স</p>
@@ -591,15 +587,15 @@ const App: React.FC = () => {
               </form>
             </Card>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {vault.map(v => (
-                <div key={v.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative">
-                  <button onClick={() => deleteVaultItem(v.id)} className="absolute top-4 right-4"><Trash2 size={16} className="text-slate-200 hover:text-rose-500"/></button>
+              {(vault || []).map(v => (
+                <div key={v.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group hover:shadow-md transition-shadow">
+                  <button onClick={() => deleteVaultItem(v.id)} className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16} className="text-slate-200 hover:text-rose-500"/></button>
                   <h4 className="font-black text-slate-800 text-lg mb-4 truncate pr-6">{v.siteName}</h4>
                   <div className="space-y-2">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">ইউজার: {v.username}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase truncate">ইউজার: {v.username}</p>
                     <div className="bg-slate-50 p-3 rounded-xl flex items-center justify-between">
-                      <span className="font-mono text-xs">{showPasswordMap[v.id] ? v.password : '••••••••'}</span>
-                      <button onClick={() => togglePassword(v.id)} className="text-slate-400">
+                      <span className="font-mono text-xs truncate mr-2">{showPasswordMap[v.id] ? v.password : '••••••••'}</span>
+                      <button onClick={() => togglePassword(v.id)} className="text-slate-400 hover:text-blue-600 flex-shrink-0">
                         {showPasswordMap[v.id] ? <EyeOff size={16}/> : <Eye size={16}/>}
                       </button>
                     </div>
@@ -613,22 +609,23 @@ const App: React.FC = () => {
         {activeTab === 'ai' && (
           <div className="space-y-6 animate-fadeIn h-full flex flex-col">
             <header><h2 className="text-2xl lg:text-3xl font-black text-slate-800">এআই</h2></header>
-            <div className="flex-1 bg-white border border-slate-100 rounded-[2.5rem] p-6 lg:p-8 flex flex-col min-h-[500px]">
-              <div className="flex-1 overflow-y-auto space-y-6">
+            <div className="flex-1 bg-white border border-slate-100 rounded-[2.5rem] p-6 lg:p-8 flex flex-col min-h-[500px] shadow-sm">
+              <div className="flex-1 overflow-y-auto space-y-6 pr-2">
                 {aiResponse ? (
                   <div className="bg-blue-50/50 p-6 rounded-3xl border border-blue-100 prose prose-blue max-w-none text-slate-700 whitespace-pre-wrap font-medium">
                     {aiResponse}
                   </div>
                 ) : (
-                  <div className="h-full flex flex-col items-center justify-center opacity-30">
-                    <Bot size={48}/>
-                    <p className="mt-4 font-bold">আমি আপনার পার্সোনাল ফিনান্স এক্সপার্ট।</p>
+                  <div className="h-full flex flex-col items-center justify-center opacity-30 text-center">
+                    <Bot size={48} className="text-blue-600 mb-4"/>
+                    <p className="font-bold">আমি আপনার পার্সোনাল ফিনান্স এক্সপার্ট।</p>
+                    <p className="text-sm">আপনার আয়-ব্যয় সম্পর্কে যেকোনো প্রশ্ন করুন।</p>
                   </div>
                 )}
               </div>
               <div className="mt-6 relative">
                 <input value={aiQuery} onChange={e => setAiQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAiAsk()} placeholder="প্রশ্ন করুন..." className="w-full pl-6 pr-14 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 focus:bg-white transition-all font-semibold" />
-                <button onClick={handleAiAsk} disabled={aiLoading} className="absolute right-3 top-2 bottom-2 bg-blue-600 text-white px-4 rounded-xl">
+                <button onClick={handleAiAsk} disabled={aiLoading} className="absolute right-3 top-2 bottom-2 bg-blue-600 text-white px-4 rounded-xl hover:bg-blue-700 transition-colors">
                   {aiLoading ? <RefreshCw className="animate-spin" size={18}/> : <Send size={18}/>}
                 </button>
               </div>
