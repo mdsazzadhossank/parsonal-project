@@ -21,46 +21,47 @@ export const dbService = {
       
       const data = await response.json();
       
-      // Merge with default state to ensure no undefined values
-      const merged = { ...defaultState, ...data };
+      // Ensure data is an object before spreading
+      const safeData = (data && typeof data === 'object') ? data : {};
+      const merged = { ...defaultState, ...safeData };
       
-      // Update local storage cache
       localStorage.setItem('amar_hisab_data', JSON.stringify(merged));
       return merged;
     } catch (e) {
       console.warn("MySQL fetch failed, falling back to LocalStorage:", e);
-      const saved = localStorage.getItem('amar_hisab_data');
-      return saved ? JSON.parse(saved) : defaultState;
+      try {
+        const saved = localStorage.getItem('amar_hisab_data');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          return { ...defaultState, ...(parsed || {}) };
+        }
+      } catch (jsonError) {
+        console.error("LocalStorage JSON parse failed", jsonError);
+      }
+      return defaultState;
     }
   },
 
   // Save specific modules to MySQL
   async sync(module: keyof AppState, data: any) {
-    // 1. Update local storage first for instant feedback/persistence
-    const saved = localStorage.getItem('amar_hisab_data');
-    const currentState = saved ? JSON.parse(saved) : {};
-    currentState[module] = data;
-    localStorage.setItem('amar_hisab_data', JSON.stringify(currentState));
-
-    // 2. Try to sync with MySQL Backend
     try {
+      // 1. Update local storage first
+      const saved = localStorage.getItem('amar_hisab_data');
+      const currentState = saved ? JSON.parse(saved) : {};
+      currentState[module] = data;
+      localStorage.setItem('amar_hisab_data', JSON.stringify(currentState));
+
+      // 2. Try to sync with MySQL Backend
       const response = await fetch(`${API_BASE_URL}/sync.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ module, data })
       });
       
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.error || 'Sync failed');
-      }
-      
-      console.log(`Cloud Sync Success: ${module}`);
+      if (!response.ok) throw new Error('Sync failed');
       return true;
     } catch (e) {
       console.error(`Cloud Sync Failed for ${module}:`, e);
-      // Even if it fails, data is safe in localStorage until next refresh
       return false;
     }
   }

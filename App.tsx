@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, Wallet, TrendingDown, Lock, Bot, Trash2, Eye, EyeOff, Menu, X, 
   RefreshCw, TrendingUp, Calculator, CreditCard, Phone, Building2, Coins, 
@@ -22,7 +22,7 @@ const SidebarItem: React.FC<{
     onClick={onClick}
     className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${
       active 
-        ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
+        ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 translate-x-1' 
         : 'text-slate-600 hover:bg-blue-50 hover:text-blue-600'
     }`}
   >
@@ -34,21 +34,21 @@ const SidebarItem: React.FC<{
 const Card: React.FC<{ title: string; children: React.ReactNode; className?: string }> = ({ title, children, className }) => (
   <div className={`bg-white rounded-2xl shadow-sm border border-slate-100 p-4 lg:p-6 ${className}`}>
     <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-50 pb-2">{title}</h3>
-    <div className="w-full overflow-hidden">
+    <div className="w-full">
       {children}
     </div>
   </div>
 );
 
 const StatCard: React.FC<{ label: string; value: number; icon: React.ReactNode; color: string; prefix?: string }> = ({ label, value, icon, color, prefix = "৳" }) => (
-  <div className={`bg-white p-4 lg:p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center space-x-4`}>
+  <div className={`bg-white p-4 lg:p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center space-x-4 transition-transform hover:scale-[1.02]`}>
     <div className={`p-3 lg:p-4 rounded-xl ${color} bg-opacity-10 text-${color.split('-')[1]}-600`}>
       {icon}
     </div>
     <div className="overflow-hidden">
       <p className="text-[10px] lg:text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">{label}</p>
       <p className="text-lg lg:text-2xl font-black text-slate-800 truncate">
-        {prefix}{value.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+        {prefix}{(value || 0).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
       </p>
     </div>
   </div>
@@ -86,13 +86,14 @@ const App: React.FC = () => {
       setIsSyncing(true);
       try {
         const data = await dbService.getState();
-        setTransactions(data.transactions || []);
-        setVault(data.vault || []);
-        setDollarTransactions(data.dollarTransactions || []);
-        setPersonalDollarUsage(data.personalDollarUsage || []);
-        setAccounts(data.accounts || []);
+        setTransactions(Array.isArray(data.transactions) ? data.transactions : []);
+        setVault(Array.isArray(data.vault) ? data.vault : []);
+        setDollarTransactions(Array.isArray(data.dollarTransactions) ? data.dollarTransactions : []);
+        setPersonalDollarUsage(Array.isArray(data.personalDollarUsage) ? data.personalDollarUsage : []);
+        setAccounts(Array.isArray(data.accounts) ? data.accounts : []);
         setDbStatus('connected');
       } catch (e) {
+        console.error("Data fetch error:", e);
         setDbStatus('offline');
       } finally {
         setIsSyncing(false);
@@ -198,7 +199,7 @@ const App: React.FC = () => {
         TransactionType.EXPENSE, 
         buyRate * quantity, 
         "ডলার ক্রয়", 
-        `পরিমাণ: $${quantity.toLocaleString(undefined, {minimumFractionDigits: 1})}`, 
+        `পরিমাণ: $${quantity.toLocaleString()}`, 
         accountName
       );
     }
@@ -223,7 +224,7 @@ const App: React.FC = () => {
          TransactionType.INCOME, 
          sellRate * targetTx.quantity, 
          "ডলার বিক্রয়", 
-         `পরিমাণ: $${targetTx.quantity.toLocaleString(undefined, {minimumFractionDigits: 1})} (বিক্রয় লব্ধ টাকা)`, 
+         `পরিমাণ: $${targetTx.quantity.toLocaleString()} (বিক্রয় লব্ধ টাকা)`, 
          targetTx.accountName
        );
     }
@@ -263,18 +264,23 @@ const App: React.FC = () => {
     setAiLoading(false);
   };
 
-  const totalIncome = transactions.filter(t => t.type === TransactionType.INCOME).reduce((s, t) => s + t.amount, 0);
-  const totalExpense = transactions.filter(t => t.type === TransactionType.EXPENSE).reduce((s, t) => s + t.amount, 0);
-  const soldTxs = dollarTransactions.filter(t => t.sellRate !== undefined);
-  const totalDollarProfit = soldTxs.reduce((acc, curr) => acc + (curr.sellRate! - curr.buyRate) * curr.quantity, 0);
+  // Memoized calculations for performance and safety
+  const stats = useMemo(() => {
+    const inc = (transactions || []).filter(t => t.type === TransactionType.INCOME).reduce((s, t) => s + (t.amount || 0), 0);
+    const exp = (transactions || []).filter(t => t.type === TransactionType.EXPENSE).reduce((s, t) => s + (t.amount || 0), 0);
+    const profit = (dollarTransactions || []).filter(t => t.sellRate !== undefined).reduce((acc, curr) => acc + ((curr.sellRate! - curr.buyRate) * curr.quantity), 0);
+    return { income: inc, expense: exp, dollarProfit: profit };
+  }, [transactions, dollarTransactions]);
 
   const getAccountBalance = (accountName: string) => {
-    const inc = transactions.filter(t => t.type === TransactionType.INCOME && t.accountName === accountName).reduce((s, t) => s + t.amount, 0);
-    const exp = transactions.filter(t => t.type === TransactionType.EXPENSE && t.accountName === accountName).reduce((s, t) => s + t.amount, 0);
+    const inc = (transactions || []).filter(t => t.type === TransactionType.INCOME && t.accountName === accountName).reduce((s, t) => s + (t.amount || 0), 0);
+    const exp = (transactions || []).filter(t => t.type === TransactionType.EXPENSE && t.accountName === accountName).reduce((s, t) => s + (t.amount || 0), 0);
     return inc - exp;
   };
 
-  const totalAccountBalance = accounts.reduce((acc, curr) => acc + getAccountBalance(curr.name), 0);
+  const totalAccountBalance = useMemo(() => {
+    return (accounts || []).reduce((acc, curr) => acc + getAccountBalance(curr.name), 0);
+  }, [accounts, transactions]);
 
   const getAccountIcon = (type: AccountType) => {
     switch (type) {
@@ -290,7 +296,7 @@ const App: React.FC = () => {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-        <div className="w-full max-w-md bg-white rounded-[2rem] shadow-2xl p-8 lg:p-10 border border-slate-100">
+        <div className="w-full max-w-md bg-white rounded-[2rem] shadow-2xl p-8 lg:p-10 border border-slate-100 animate-fadeIn">
           <div className="text-center mb-10">
             <div className="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-xl shadow-blue-200">
               <Wallet className="text-white w-10 h-10" />
@@ -322,6 +328,7 @@ const App: React.FC = () => {
             </button>
           </form>
         </div>
+        <style>{`.animate-fadeIn { animation: fadeIn 0.5s ease-out; } @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }`}</style>
       </div>
     );
   }
@@ -337,7 +344,7 @@ const App: React.FC = () => {
       {/* Sidebar Mobile Toggle */}
       <div className="lg:hidden h-16 bg-white border-b border-slate-200 px-4 flex items-center justify-between sticky top-0 z-50">
         <h1 className="text-xl font-bold text-blue-700 flex items-center gap-2"><Wallet size={24} /> আমার হিসাব</h1>
-        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 bg-slate-50 rounded-xl">
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 bg-slate-50 rounded-xl border border-slate-200">
           {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
@@ -364,9 +371,13 @@ const App: React.FC = () => {
           </div>
         </nav>
         <div className="p-6 border-t border-slate-100 space-y-4">
-          <button onClick={handleLogout} className="w-full flex items-center gap-2 text-rose-500 text-[11px] font-black uppercase p-3 hover:bg-rose-50 rounded-xl">
+          <button onClick={handleLogout} className="w-full flex items-center gap-2 text-rose-500 text-[11px] font-black uppercase p-3 hover:bg-rose-50 rounded-xl transition-colors">
             <XCircle size={16} /> সাইন আউট
           </button>
+          <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 border rounded-lg">
+             <Cloud size={14} className={dbStatus === 'connected' ? 'text-emerald-500' : 'text-rose-500'} />
+             <span className="text-[10px] font-bold uppercase text-slate-500">{dbStatus}</span>
+          </div>
           <div className="bg-blue-600 p-5 rounded-2xl text-white shadow-xl relative overflow-hidden group">
             <p className="text-[10px] font-bold uppercase opacity-80 mb-1">মোট ব্যালেন্স</p>
             <p className="text-xl lg:text-2xl font-black truncate">৳{totalAccountBalance.toLocaleString(undefined, { minimumFractionDigits: 1 })}</p>
@@ -377,16 +388,16 @@ const App: React.FC = () => {
       {/* Main Content Area */}
       <main className="flex-1 p-4 lg:p-8 w-full max-w-[1400px] mx-auto overflow-x-hidden">
         {activeTab === 'dashboard' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-fadeIn">
             <header>
               <h2 className="text-2xl lg:text-3xl font-black text-slate-800">ওভারভিউ</h2>
               <p className="text-slate-400 text-sm font-medium">আপনার বর্তমান আর্থিক অবস্থা</p>
             </header>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
-              <StatCard label="আয়" value={totalIncome} icon={<TrendingUp size={20}/>} color="bg-emerald-500" />
-              <StatCard label="ব্যয়" value={totalExpense} icon={<TrendingDown size={20}/>} color="bg-rose-500" />
+              <StatCard label="আয়" value={stats.income} icon={<TrendingUp size={20}/>} color="bg-emerald-500" />
+              <StatCard label="ব্যয়" value={stats.expense} icon={<TrendingDown size={20}/>} color="bg-rose-500" />
               <StatCard label="ব্যালেন্স" value={totalAccountBalance} icon={<Wallet size={20}/>} color="bg-blue-500" />
-              <StatCard label="ডলার প্রফিট" value={totalDollarProfit} icon={<TrendingUp size={20}/>} color="bg-indigo-500" />
+              <StatCard label="ডলার প্রফিট" value={stats.dollarProfit} icon={<TrendingUp size={20}/>} color="bg-indigo-500" />
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
               <Card title="সাম্প্রতিক লেনদেন">
@@ -397,12 +408,12 @@ const App: React.FC = () => {
                         <div className={`p-2 rounded-lg ${t.type === TransactionType.INCOME ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
                           {t.type === TransactionType.INCOME ? <TrendingUp size={16}/> : <TrendingDown size={16}/>}
                         </div>
-                        <div>
-                          <p className="font-bold text-slate-800 text-xs lg:text-sm">{t.category}</p>
-                          <p className="text-[9px] text-slate-400 font-bold uppercase">{t.accountName}</p>
+                        <div className="min-w-0 overflow-hidden">
+                          <p className="font-bold text-slate-800 text-xs lg:text-sm truncate">{t.category}</p>
+                          <p className="text-[9px] text-slate-400 font-bold uppercase truncate">{t.accountName}</p>
                         </div>
                       </div>
-                      <p className={`font-black text-sm lg:text-base ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-rose-600'}`}>৳{t.amount.toLocaleString(undefined, { minimumFractionDigits: 1 })}</p>
+                      <p className={`font-black text-sm lg:text-base whitespace-nowrap ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-rose-600'}`}>৳{t.amount.toLocaleString()}</p>
                     </div>
                   ))}
                   {transactions.length === 0 && <div className="py-8 text-center text-slate-400 text-xs">কোনো লেনদেন পাওয়া যায়নি</div>}
@@ -411,7 +422,7 @@ const App: React.FC = () => {
               <Card title="অ্যাকাউন্ট ব্যালেন্স">
                 <div className="space-y-3">
                   {accounts.map(acc => (
-                    <div key={acc.id} className="flex justify-between items-center p-3 border-b border-slate-50 last:border-0">
+                    <div key={acc.id} className="flex justify-between items-center p-3 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="text-blue-500 bg-blue-50 p-2 rounded-lg">{getAccountIcon(acc.type)}</div>
                         <div>
@@ -419,7 +430,7 @@ const App: React.FC = () => {
                           <p className="text-[9px] text-slate-400 font-bold uppercase">{acc.providerName}</p>
                         </div>
                       </div>
-                      <p className="font-black text-slate-800 text-sm lg:text-base">৳{getAccountBalance(acc.name).toLocaleString(undefined, { minimumFractionDigits: 1 })}</p>
+                      <p className="font-black text-slate-800 text-sm lg:text-base">৳{getAccountBalance(acc.name).toLocaleString()}</p>
                     </div>
                   ))}
                 </div>
@@ -429,7 +440,7 @@ const App: React.FC = () => {
         )}
 
         {(activeTab === 'income' || activeTab === 'expense' || activeTab === 'dollar' || activeTab === 'personal_dollar') && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-fadeIn">
             <header><h2 className="text-2xl lg:text-3xl font-black text-slate-800">{activeTab === 'income' ? 'আয়' : activeTab === 'expense' ? 'ব্যয়' : activeTab === 'dollar' ? 'ডলার ট্রেডিং' : 'পার্সোনাল ইউজ'}</h2></header>
             <Card title="নতুন রেকর্ড">
               <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" onSubmit={(e) => {
@@ -519,9 +530,8 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Other tabs follow the same clean structure */}
         {activeTab === 'accounts' && (
-           <div className="space-y-6">
+           <div className="space-y-6 animate-fadeIn">
               <header><h2 className="text-2xl lg:text-3xl font-black text-slate-800">অ্যাকাউন্টস</h2></header>
               <Card title="নতুন অ্যাকাউন্ট">
                 <form className="grid grid-cols-1 sm:grid-cols-3 gap-4" onSubmit={(e) => {
@@ -562,7 +572,7 @@ const App: React.FC = () => {
         )}
 
         {activeTab === 'vault' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-fadeIn">
             <header><h2 className="text-2xl lg:text-3xl font-black text-slate-800">ভল্ট</h2></header>
             <Card title="নতুন পাসওয়ার্ড">
               <form className="grid grid-cols-1 sm:grid-cols-3 gap-4" onSubmit={(e) => {
@@ -601,7 +611,7 @@ const App: React.FC = () => {
         )}
 
         {activeTab === 'ai' && (
-          <div className="space-y-6 h-full flex flex-col">
+          <div className="space-y-6 animate-fadeIn h-full flex flex-col">
             <header><h2 className="text-2xl lg:text-3xl font-black text-slate-800">এআই</h2></header>
             <div className="flex-1 bg-white border border-slate-100 rounded-[2.5rem] p-6 lg:p-8 flex flex-col min-h-[500px]">
               <div className="flex-1 overflow-y-auto space-y-6">
@@ -631,6 +641,8 @@ const App: React.FC = () => {
           .btn-primary { @apply text-white font-black py-3 px-6 rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 text-xs; }
           .animate-syncProgress { animation: syncProgress 1.5s infinite linear; }
           @keyframes syncProgress { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
+          .animate-fadeIn { animation: fadeIn 0.4s ease-out; }
+          @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
           * { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
           *::-webkit-scrollbar { width: 4px; }
           *::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
