@@ -206,9 +206,18 @@ const App: React.FC = () => {
       buyRate, sellRate, quantity, note, accountName,
       date: new Date().toISOString().split('T')[0]
     };
+    
+    // অটোমেটিক টাকা কাটা (Automatic Balance Deduction)
     if (accountName) {
-      addTransaction(TransactionType.EXPENSE, buyRate * quantity, "ডলার ক্রয়", `পরিমাণ: $${quantity}`, accountName);
+      addTransaction(
+        TransactionType.EXPENSE, 
+        buyRate * quantity, 
+        "ডলার ক্রয়", 
+        `পরিমাণ: $${quantity.toLocaleString(undefined, {minimumFractionDigits: 1})}`, 
+        accountName
+      );
     }
+
     setDollarTransactions(prev => {
       const updated = [newTx, ...prev];
       syncModule('dollarTransactions', updated);
@@ -224,12 +233,13 @@ const App: React.FC = () => {
     setDollarTransactions(updated);
     syncModule('dollarTransactions', updated);
 
+    // অটোমেটিক টাকা যোগ হওয়া (Automatic Balance Addition on Sell)
     if (targetTx.accountName) {
        addTransaction(
          TransactionType.INCOME, 
          sellRate * targetTx.quantity, 
          "ডলার বিক্রয়", 
-         `পরিমাণ: $${targetTx.quantity} (বিক্রয় লব্ধ টাকা)`, 
+         `পরিমাণ: $${targetTx.quantity.toLocaleString(undefined, {minimumFractionDigits: 1})} (বিক্রয় লব্ধ টাকা)`, 
          targetTx.accountName
        );
     }
@@ -409,7 +419,7 @@ const App: React.FC = () => {
           </div>
           <div className="bg-blue-600 p-4 rounded-xl text-white shadow-lg shadow-blue-200">
             <p className="text-[10px] font-bold uppercase opacity-80 mb-1">মোট ব্যালেন্স</p>
-            <p className="text-xl font-black">৳{balance.toLocaleString(undefined, { minimumFractionDigits: 1 })}</p>
+            <p className="text-xl font-black">৳{totalAccountBalance.toLocaleString(undefined, { minimumFractionDigits: 1 })}</p>
           </div>
         </div>
       </aside>
@@ -469,7 +479,6 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* --- Income/Expense Tabs --- */}
         {(activeTab === 'income' || activeTab === 'expense') && (
           <div className="space-y-6 animate-fadeIn">
             <header><h2 className="text-2xl font-bold text-slate-800">{activeTab === 'income' ? 'আয়ের তালিকা' : 'ব্যয়ের তালিকা'}</h2></header>
@@ -491,7 +500,7 @@ const App: React.FC = () => {
                 );
                 form.reset();
               }}>
-                <input name="amount" type="number" step="any" placeholder="টাকার পরিমাণ" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
+                <input name="amount" type="number" step="any" placeholder="টাকার পরিমাণ (উদা: 127.6)" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
                 <input name="category" placeholder="ক্যাটাগরি" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
                 <select name="account" required className="px-4 py-2 border rounded-lg text-sm bg-white outline-none focus:border-blue-500">
                   <option value="">অ্যাকাউন্ট সিলেক্ট</option>
@@ -524,7 +533,6 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* --- Dollar Trading Tab --- */}
         {activeTab === 'dollar' && (
           <div className="space-y-6 animate-fadeIn">
              <header><h2 className="text-2xl font-bold text-slate-800">ডলার ট্রেডিং</h2></header>
@@ -545,13 +553,13 @@ const App: React.FC = () => {
                   <div className="flex flex-col justify-end">
                     <div className="bg-white px-4 py-2 border rounded-lg h-[40px] flex items-center justify-between shadow-inner">
                       <span className="text-[10px] font-bold text-slate-400 uppercase">মোট টাকা:</span>
-                      <span className="font-black text-blue-700">৳{(parseFloat(calcAmount || '0') * parseFloat(calcRate || '0')).toLocaleString(undefined, { minimumFractionDigits: 1 })}</span>
+                      <span className="font-black text-blue-700">৳{(parseFloat(calcAmount || '0') * parseFloat(calcRate || '0')).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <Card title="নতুন লেনদেন">
+              <Card title="নতুন লেনদেন (অটোমেটিক ব্যালেন্স ডিডাকশন)">
                 <form className="grid grid-cols-1 md:grid-cols-4 gap-4" onSubmit={(e) => {
                   e.preventDefault();
                   const form = e.target as HTMLFormElement;
@@ -582,6 +590,7 @@ const App: React.FC = () => {
                           <th className="pb-3 text-right">সেল রেট</th>
                           <th className="pb-3 text-right">প্রফিট/ডলার</th>
                           <th className="pb-3 text-right">মোট লাভ</th>
+                          <th className="pb-3 text-right">মোট কামাই (৳)</th>
                           <th className="pb-3 text-right">অ্যাকশন</th>
                         </tr>
                      </thead>
@@ -589,6 +598,8 @@ const App: React.FC = () => {
                        {dollarTransactions.map(t => {
                          const profitPerDollar = t.sellRate ? (t.sellRate - t.buyRate) : 0;
                          const totalProfit = profitPerDollar * t.quantity;
+                         const totalReceived = t.sellRate ? (t.sellRate * t.quantity) : 0;
+                         
                          return (
                            <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
                               <td className="py-4 text-xs text-slate-500">{t.date}</td>
@@ -612,6 +623,9 @@ const App: React.FC = () => {
                               <td className={`py-4 text-right font-black ${totalProfit > 0 ? 'text-emerald-600' : totalProfit < 0 ? 'text-rose-600' : 'text-slate-400'}`}>
                                 {t.sellRate ? `৳${totalProfit.toLocaleString(undefined, { minimumFractionDigits: 1 })}` : '-'}
                               </td>
+                              <td className="py-4 text-right font-bold text-slate-800">
+                                {t.sellRate ? `৳${totalReceived.toLocaleString(undefined, { minimumFractionDigits: 1 })}` : '-'}
+                              </td>
                               <td className="py-4 text-right"><button onClick={() => deleteDollarTx(t.id)} className="text-slate-200 hover:text-rose-500"><Trash2 size={16}/></button></td>
                            </tr>
                          );
@@ -623,7 +637,6 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* --- Other Tabs --- */}
         {activeTab === 'personal_dollar' && (
           <div className="space-y-6 animate-fadeIn">
             <header><h2 className="text-2xl font-bold text-slate-800">পার্সোনাল ডলার ইউজ</h2></header>
