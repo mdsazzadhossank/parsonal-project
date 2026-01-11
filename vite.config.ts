@@ -1,12 +1,8 @@
-
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  define: {
-    // Defines process.env to support the existing code structure
-    'process.env': {} 
-  }
+  // Fixed: Removed process.env definition to allow proper environment variable access
 })

@@ -433,7 +433,7 @@ const App: React.FC = () => {
             </header>
 
             <Card title="নতুন অর্ডার যোগ করুন">
-              <form className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4" onSubmit={(e) => {
+              <form className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4" onSubmit={(e: React.FormEvent) => {
                 e.preventDefault();
                 const form = e.target as HTMLFormElement;
                 addOrder(
@@ -531,7 +531,7 @@ const App: React.FC = () => {
               </div>
 
               <Card title="নতুন ডলার বাই/সেল রেকর্ড করুন">
-                <form className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4" onSubmit={(e) => {
+                <form className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4" onSubmit={(e: React.FormEvent) => {
                   e.preventDefault();
                   const form = e.target as HTMLFormElement;
                   const buy = Number((form.elements.namedItem('buy') as HTMLInputElement).value);
@@ -678,7 +678,7 @@ const App: React.FC = () => {
           <div className="space-y-6 animate-fadeIn">
              <header><h2 className="text-2xl font-bold text-slate-800">অ্যাকাউন্টস এবং ডিটেইলস</h2></header>
              <Card title="নতুন অ্যাকাউন্ট যোগ করুন">
-              <form className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" onSubmit={(e) => {
+              <form className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" onSubmit={(e: React.FormEvent) => {
                 e.preventDefault();
                 const form = e.target as HTMLFormElement;
                 addAccount({
@@ -743,7 +743,7 @@ const App: React.FC = () => {
            <div className="space-y-6 animate-fadeIn">
               <header><h2 className="text-2xl font-bold text-slate-800">{activeTab === 'income' ? 'আয়ের তথ্য' : 'ব্যয়ের তথ্য'}</h2></header>
               <Card title={`নতুন ${activeTab === 'income' ? 'আয়' : 'ব্যয়'} যোগ করুন`}>
-                <form className="grid grid-cols-1 md:grid-cols-5 gap-4" onSubmit={(e) => {
+                <form className="grid grid-cols-1 md:grid-cols-5 gap-4" onSubmit={(e: React.FormEvent) => {
                   e.preventDefault();
                   const form = e.target as HTMLFormElement;
                   addTransaction(activeTab === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE, Number((form.elements.namedItem('amount') as HTMLInputElement).value), (form.elements.namedItem('cat') as HTMLInputElement).value, "", (form.elements.namedItem('acc') as HTMLSelectElement).value);
@@ -785,7 +785,7 @@ const App: React.FC = () => {
                <StatCard label="মোট সমপরিমাণ টাকা" value={totalPersonalTakaSpent} icon={<Banknote />} color="bg-slate-800" />
             </div>
             <Card title="নতুন খরচ রেকর্ড করুন">
-              <form className="grid grid-cols-1 md:grid-cols-4 gap-4" onSubmit={(e) => {
+              <form className="grid grid-cols-1 md:grid-cols-4 gap-4" onSubmit={(e: React.FormEvent) => {
                 e.preventDefault();
                 const form = e.target as HTMLFormElement;
                 addPersonalDollarUsage(Number((form.elements.namedItem('a') as HTMLInputElement).value), Number((form.elements.namedItem('r') as HTMLInputElement).value), (form.elements.namedItem('p') as HTMLInputElement).value, "");
@@ -804,7 +804,7 @@ const App: React.FC = () => {
           <div className="space-y-6 animate-fadeIn">
              <header><h2 className="text-2xl font-bold text-slate-800">পাসওয়ার্ড ভল্ট</h2></header>
              <Card title="নতুন পাসওয়ার্ড সেভ করুন">
-              <form className="grid grid-cols-1 md:grid-cols-4 gap-4" onSubmit={(e) => {
+              <form className="grid grid-cols-1 md:grid-cols-4 gap-4" onSubmit={(e: React.FormEvent) => {
                 e.preventDefault();
                 const form = e.target as HTMLFormElement;
                 addVaultItem((form.elements.namedItem('s') as HTMLInputElement).value, (form.elements.namedItem('u') as HTMLInputElement).value, (form.elements.namedItem('p') as HTMLInputElement).value, "");
@@ -841,7 +841,7 @@ const App: React.FC = () => {
                 {aiLoading && <div className="animate-pulse text-blue-600 font-bold">Gemini হিসাব নিকাশ করছে...</div>}
               </div>
               <div className="p-4 bg-slate-50 border-t flex gap-2">
-                <input type="text" value={aiQuery} onChange={(e) => setAiQuery(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAiAsk()} placeholder="আপনার প্রশ্নটি..." className="flex-1 px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500" />
+                <input type="text" value={aiQuery} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAiQuery(e.target.value)} onKeyPress={(e: React.KeyboardEvent) => e.key === 'Enter' && handleAiAsk()} placeholder="আপনার প্রশ্নটি..." className="flex-1 px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500" />
                 <button onClick={handleAiAsk} disabled={aiLoading} className="bg-blue-600 text-white px-6 rounded-xl font-bold hover:bg-blue-700 transition-colors">জিজ্ঞেস করুন</button>
               </div>
             </div>
