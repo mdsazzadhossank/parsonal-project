@@ -1,5 +1,5 @@
 
-import { AppState } from "../types";
+import { AppState } from "../types.ts";
 
 const API_BASE_URL = "/api"; 
 
