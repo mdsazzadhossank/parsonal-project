@@ -4,11 +4,15 @@ import {
   LayoutDashboard, Wallet, TrendingDown, Lock, Bot, Plus, Trash2, Eye, EyeOff, Menu, X, 
   RefreshCw, TrendingUp, DollarSign, Calculator, ArrowRightLeft, CreditCard, Banknote, 
   Phone, Building2, Coins, CheckCircle2, Clock, UserCheck, ShoppingBag, Package, 
-  AlertCircle, CheckCircle, XCircle, RotateCcw, Cloud, Send, Search
+  AlertCircle, CheckCircle, XCircle, RotateCcw, Cloud, Send, Search, KeyRound, LogIn
 } from 'lucide-react';
 import { Transaction, TransactionType, VaultItem, AppState, DollarTransaction, Account, AccountType, PersonalDollarUsage, Order, OrderStatus } from './types';
 import { getFinancialAdvice } from './services/gemini';
 import { dbService } from './services/api';
+
+// --- CONFIGURATION ---
+const APP_PASSWORD = "admin123"; // আপনার পাসওয়ার্ডটি এখানে পরিবর্তন করুন
+// ---------------------
 
 // --- Sub-components ---
 
@@ -51,6 +55,15 @@ const StatCard: React.FC<{ label: string; value: number; icon: React.ReactNode; 
 );
 
 const App: React.FC = () => {
+  // Authentication State
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return sessionStorage.getItem('is_auth') === 'true';
+  });
+  const [loginPass, setLoginPass] = useState('');
+  const [loginError, setLoginError] = useState(false);
+  const [showLoginPass, setShowLoginPass] = useState(false);
+
+  // App Navigation State
   const [activeTab, setActiveTab] = useState<'dashboard' | 'income' | 'expense' | 'vault' | 'ai' | 'dollar' | 'accounts' | 'personal_dollar' | 'orders'>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -80,6 +93,8 @@ const App: React.FC = () => {
   const [tempSellRate, setTempSellRate] = useState<string>('');
 
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     const fetchData = async () => {
       setIsSyncing(true);
       try {
@@ -98,7 +113,24 @@ const App: React.FC = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [isAuthenticated]);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loginPass === APP_PASSWORD) {
+      setIsAuthenticated(true);
+      sessionStorage.setItem('is_auth', 'true');
+      setLoginError(false);
+    } else {
+      setLoginError(true);
+      setLoginPass('');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    sessionStorage.removeItem('is_auth');
+  };
 
   const syncModule = async (module: keyof AppState, data: any) => {
     setIsSyncing(true);
@@ -265,6 +297,74 @@ const App: React.FC = () => {
     setShowPasswordMap(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  // --- Login Screen Render ---
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+        <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl shadow-blue-100 p-8 border border-slate-100 animate-fadeIn">
+          <div className="text-center mb-8">
+            <div className="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-200">
+              <Wallet className="text-white w-10 h-10" />
+            </div>
+            <h1 className="text-2xl font-black text-slate-800">আমার হিসাব</h1>
+            <p className="text-slate-400 text-sm font-medium mt-1">পাসওয়ার্ড দিয়ে লগইন করুন</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">অ্যাক্সেস পাসওয়ার্ড</label>
+              <div className="relative">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                  <KeyRound size={20} />
+                </div>
+                <input
+                  type={showLoginPass ? "text" : "password"}
+                  value={loginPass}
+                  onChange={(e) => {
+                    setLoginPass(e.target.value);
+                    setLoginError(false);
+                  }}
+                  autoFocus
+                  className={`w-full pl-12 pr-12 py-4 bg-slate-50 border-2 ${loginError ? 'border-rose-400' : 'border-transparent'} rounded-2xl outline-none focus:bg-white focus:border-blue-500 transition-all font-medium text-lg`}
+                  placeholder="••••••••"
+                />
+                <button 
+                  type="button" 
+                  onClick={() => setShowLoginPass(!showLoginPass)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-500"
+                >
+                  {showLoginPass ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+              {loginError && (
+                <p className="text-rose-500 text-xs font-bold mt-2 flex items-center gap-1">
+                  <AlertCircle size={14} /> ভুল পাসওয়ার্ড! আবার চেষ্টা করুন।
+                </p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2 transition-all transform active:scale-[0.98] shadow-lg shadow-blue-200"
+            >
+              <LogIn size={20} />
+              প্রবেশ করুন
+            </button>
+          </form>
+
+          <p className="text-center text-[10px] text-slate-300 uppercase font-bold mt-8 tracking-tighter">
+            Personal & Secure Financial Management System
+          </p>
+        </div>
+        <style>{`
+          @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+          .animate-fadeIn { animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        `}</style>
+      </div>
+    );
+  }
+
+  // --- Main App Render ---
   return (
     <div className="min-h-screen flex bg-slate-50 text-slate-900 overflow-x-hidden">
       {isSyncing && (
@@ -284,7 +384,7 @@ const App: React.FC = () => {
           <h1 className="text-2xl font-bold text-blue-700 flex items-center gap-2"><Wallet className="w-8 h-8" />আমার হিসাব</h1>
           <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-semibold">Financial Cloud Sync</p>
         </div>
-        <nav className="mt-4 px-4 space-y-2 overflow-y-auto max-h-[calc(100vh-280px)]">
+        <nav className="mt-4 px-4 space-y-2 overflow-y-auto max-h-[calc(100vh-320px)]">
           <SidebarItem icon={<LayoutDashboard size={20} />} label="ড্যাশবোর্ড" active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} />
           <SidebarItem icon={<CreditCard size={20} />} label="অ্যাকাউন্টস" active={activeTab === 'accounts'} onClick={() => { setActiveTab('accounts'); setSidebarOpen(false); }} />
           <SidebarItem icon={<TrendingUp size={20} />} label="আয়ের তালিকা" active={activeTab === 'income'} onClick={() => { setActiveTab('income'); setSidebarOpen(false); }} />
@@ -297,6 +397,12 @@ const App: React.FC = () => {
           </div>
         </nav>
         <div className="absolute bottom-8 left-0 w-full px-6 space-y-3">
+          <button 
+            onClick={handleLogout}
+            className="w-full flex items-center gap-2 text-rose-500 text-xs font-bold uppercase p-2 hover:bg-rose-50 rounded-lg transition-colors mb-2"
+          >
+            <XCircle size={14} /> সাইন আউট
+          </button>
           <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 border rounded-lg">
              <Cloud size={14} className={dbStatus === 'connected' ? 'text-emerald-500' : 'text-rose-500'} />
              <span className="text-[10px] font-bold uppercase text-slate-500">{dbStatus === 'connected' ? 'MySQL Online' : 'Offline'}</span>
@@ -363,6 +469,7 @@ const App: React.FC = () => {
           </div>
         )}
 
+        {/* --- Income/Expense Tabs --- */}
         {(activeTab === 'income' || activeTab === 'expense') && (
           <div className="space-y-6 animate-fadeIn">
             <header><h2 className="text-2xl font-bold text-slate-800">{activeTab === 'income' ? 'আয়ের তালিকা' : 'ব্যয়ের তালিকা'}</h2></header>
@@ -384,7 +491,7 @@ const App: React.FC = () => {
                 );
                 form.reset();
               }}>
-                <input name="amount" type="number" step="any" placeholder="টাকার পরিমাণ (উদা: 127.6)" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
+                <input name="amount" type="number" step="any" placeholder="টাকার পরিমাণ" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
                 <input name="category" placeholder="ক্যাটাগরি" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
                 <select name="account" required className="px-4 py-2 border rounded-lg text-sm bg-white outline-none focus:border-blue-500">
                   <option value="">অ্যাকাউন্ট সিলেক্ট</option>
@@ -410,9 +517,6 @@ const App: React.FC = () => {
                         <td className="py-4 text-right"><button onClick={() => deleteTransaction(t.id)} className="text-slate-200 hover:text-rose-500"><Trash2 size={16}/></button></td>
                       </tr>
                     ))}
-                    {transactions.filter(t => t.type === (activeTab === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE)).length === 0 && (
-                        <tr><td colSpan={5} className="py-8 text-center text-slate-400 italic">এখনো কোনো ডাটা নেই</td></tr>
-                    )}
                   </tbody>
                 </table>
               </div>
@@ -420,11 +524,10 @@ const App: React.FC = () => {
           </div>
         )}
 
+        {/* --- Dollar Trading Tab --- */}
         {activeTab === 'dollar' && (
           <div className="space-y-6 animate-fadeIn">
              <header><h2 className="text-2xl font-bold text-slate-800">ডলার ট্রেডিং</h2></header>
-              
-              {/* Dollar Calculator Tool */}
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 shadow-sm">
                 <div className="flex items-center gap-2 mb-4 text-blue-700">
                   <Calculator size={20} />
@@ -442,7 +545,7 @@ const App: React.FC = () => {
                   <div className="flex flex-col justify-end">
                     <div className="bg-white px-4 py-2 border rounded-lg h-[40px] flex items-center justify-between shadow-inner">
                       <span className="text-[10px] font-bold text-slate-400 uppercase">মোট টাকা:</span>
-                      <span className="font-black text-blue-700">৳{(parseFloat(calcAmount || '0') * parseFloat(calcRate || '0')).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })}</span>
+                      <span className="font-black text-blue-700">৳{(parseFloat(calcAmount || '0') * parseFloat(calcRate || '0')).toLocaleString(undefined, { minimumFractionDigits: 1 })}</span>
                     </div>
                   </div>
                 </div>
@@ -486,7 +589,6 @@ const App: React.FC = () => {
                        {dollarTransactions.map(t => {
                          const profitPerDollar = t.sellRate ? (t.sellRate - t.buyRate) : 0;
                          const totalProfit = profitPerDollar * t.quantity;
-                         
                          return (
                            <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
                               <td className="py-4 text-xs text-slate-500">{t.date}</td>
@@ -514,7 +616,6 @@ const App: React.FC = () => {
                            </tr>
                          );
                        })}
-                       {dollarTransactions.length === 0 && <tr><td colSpan={7} className="py-8 text-center text-slate-400 italic">কোনো ট্রেডিং রেকর্ড নেই</td></tr>}
                      </tbody>
                    </table>
                 </div>
@@ -522,6 +623,7 @@ const App: React.FC = () => {
           </div>
         )}
 
+        {/* --- Other Tabs --- */}
         {activeTab === 'personal_dollar' && (
           <div className="space-y-6 animate-fadeIn">
             <header><h2 className="text-2xl font-bold text-slate-800">পার্সোনাল ডলার ইউজ</h2></header>
@@ -558,11 +660,54 @@ const App: React.FC = () => {
                         <td className="py-4 text-right"><button onClick={() => deletePersonalDollar(p.id)} className="text-slate-200 hover:text-rose-500"><Trash2 size={16}/></button></td>
                       </tr>
                     ))}
-                    {personalDollarUsage.length === 0 && <tr><td colSpan={6} className="py-8 text-center text-slate-400 italic">কোনো রেকর্ড নেই</td></tr>}
                   </tbody>
                 </table>
               </div>
             </Card>
+          </div>
+        )}
+
+        {activeTab === 'accounts' && (
+          <div className="space-y-6 animate-fadeIn">
+             <header><h2 className="text-2xl font-bold text-slate-800">অ্যাকাউন্টস</h2></header>
+             <Card title="নতুন অ্যাকাউন্ট">
+              <form className="grid grid-cols-1 md:grid-cols-3 gap-4" onSubmit={(e) => {
+                e.preventDefault();
+                const form = e.target as HTMLFormElement;
+                const accName = form.elements.namedItem('accName') as HTMLInputElement;
+                const accType = form.elements.namedItem('accType') as HTMLSelectElement;
+                const provider = form.elements.namedItem('provider') as HTMLInputElement;
+                addAccount({ name: accName.value, type: accType.value as AccountType, providerName: provider.value });
+                form.reset();
+              }}>
+                <input name="accName" placeholder="নাম" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
+                <select name="accType" className="px-4 py-2 border rounded-lg bg-white text-sm outline-none focus:border-blue-500">
+                    <option value="Mobile Wallet">মোবাইল ওয়ালেট</option>
+                    <option value="Bank">ব্যাংক</option>
+                    <option value="Cash">ক্যাশ</option>
+                </select>
+                <input name="provider" placeholder="প্রোভাইডার (বিকাশ, ডাচ-বাংলা ইত্যাদি)" className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
+                <button type="submit" className="bg-blue-600 text-white rounded-lg font-bold text-sm col-span-full py-2 hover:bg-blue-700 transition-colors shadow-md">অ্যাকাউন্ট সেভ করুন</button>
+              </form>
+            </Card>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {accounts.map(acc => (
+                <div key={acc.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative group hover:shadow-md transition-shadow">
+                  <button onClick={() => deleteAccount(acc.id)} className="absolute top-4 right-4 text-slate-200 hover:text-rose-600 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={18}/></button>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">{getAccountIcon(acc.type)}</div>
+                    <div>
+                      <h4 className="font-bold text-slate-800">{acc.name}</h4>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase">{acc.providerName}</p>
+                    </div>
+                  </div>
+                  <div className="bg-blue-600 p-4 rounded-xl text-white shadow-md shadow-blue-100">
+                    <p className="text-[10px] font-bold opacity-70 uppercase mb-1">কারেন্ট ব্যালেন্স</p>
+                    <p className="text-2xl font-black">৳{getAccountBalance(acc.name).toLocaleString(undefined, { minimumFractionDigits: 1 })}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -610,60 +755,6 @@ const App: React.FC = () => {
                   </div>
                 </div>
               ))}
-              {vault.length === 0 && (
-                <div className="col-span-full py-12 text-center text-slate-400 border-2 border-dashed rounded-2xl">
-                    ভল্ট খালি। নতুন পাসওয়ার্ড যোগ করুন।
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'accounts' && (
-          <div className="space-y-6 animate-fadeIn">
-             <header><h2 className="text-2xl font-bold text-slate-800">অ্যাকাউন্টস</h2></header>
-             <Card title="নতুন অ্যাকাউন্ট">
-              <form className="grid grid-cols-1 md:grid-cols-3 gap-4" onSubmit={(e) => {
-                e.preventDefault();
-                const form = e.target as HTMLFormElement;
-                const accName = form.elements.namedItem('accName') as HTMLInputElement;
-                const accType = form.elements.namedItem('accType') as HTMLSelectElement;
-                const provider = form.elements.namedItem('provider') as HTMLInputElement;
-                addAccount({ name: accName.value, type: accType.value as AccountType, providerName: provider.value });
-                form.reset();
-              }}>
-                <input name="accName" placeholder="নাম" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
-                <select name="accType" className="px-4 py-2 border rounded-lg bg-white text-sm outline-none focus:border-blue-500">
-                    <option value="Mobile Wallet">মোবাইল ওয়ালেট</option>
-                    <option value="Bank">ব্যাংক</option>
-                    <option value="Cash">ক্যাশ</option>
-                </select>
-                <input name="provider" placeholder="প্রোভাইডার (বিকাশ, ডাচ-বাংলা ইত্যাদি)" className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
-                <button type="submit" className="bg-blue-600 text-white rounded-lg font-bold text-sm col-span-full py-2 hover:bg-blue-700 transition-colors shadow-md">অ্যাকাউন্ট সেভ করুন</button>
-              </form>
-            </Card>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {accounts.map(acc => (
-                <div key={acc.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative group hover:shadow-md transition-shadow">
-                  <button onClick={() => deleteAccount(acc.id)} className="absolute top-4 right-4 text-slate-200 hover:text-rose-600 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={18}/></button>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">{getAccountIcon(acc.type)}</div>
-                    <div>
-                      <h4 className="font-bold text-slate-800">{acc.name}</h4>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase">{acc.providerName}</p>
-                    </div>
-                  </div>
-                  <div className="bg-blue-600 p-4 rounded-xl text-white shadow-md shadow-blue-100">
-                    <p className="text-[10px] font-bold opacity-70 uppercase mb-1">কারেন্ট ব্যালেন্স</p>
-                    <p className="text-2xl font-black">৳{getAccountBalance(acc.name).toLocaleString(undefined, { minimumFractionDigits: 1 })}</p>
-                  </div>
-                </div>
-              ))}
-              {accounts.length === 0 && (
-                 <div className="col-span-full py-12 text-center text-slate-400 border-2 border-dashed rounded-2xl">
-                    কোনো অ্যাকাউন্ট যোগ করা হয়নি।
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -721,9 +812,7 @@ const App: React.FC = () => {
           @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
           .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
           
-          /* Firefox */
           * { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
-          /* Chrome, Edge, and Safari */
           *::-webkit-scrollbar { width: 6px; }
           *::-webkit-scrollbar-track { background: transparent; }
           *::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
