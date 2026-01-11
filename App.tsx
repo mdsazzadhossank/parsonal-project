@@ -4,15 +4,11 @@ import {
   LayoutDashboard, Wallet, TrendingDown, Lock, Bot, Plus, Trash2, Eye, EyeOff, Menu, X, 
   RefreshCw, TrendingUp, DollarSign, Calculator, ArrowRightLeft, CreditCard, Banknote, 
   Phone, Building2, Coins, CheckCircle2, Clock, UserCheck, ShoppingBag, Package, 
-  AlertCircle, CheckCircle, XCircle, RotateCcw, Cloud, Send, Search, KeyRound, LogIn
+  AlertCircle, CheckCircle, XCircle, RotateCcw, Cloud, Send, Search
 } from 'lucide-react';
 import { Transaction, TransactionType, VaultItem, AppState, DollarTransaction, Account, AccountType, PersonalDollarUsage, Order, OrderStatus } from './types';
 import { getFinancialAdvice } from './services/gemini';
 import { dbService } from './services/api';
-
-// --- CONFIGURATION ---
-const APP_PASSWORD = "admin123"; // আপনার পাসওয়ার্ডটি এখানে পরিবর্তন করুন
-// ---------------------
 
 // --- Sub-components ---
 
@@ -49,21 +45,29 @@ const StatCard: React.FC<{ label: string; value: number; icon: React.ReactNode; 
     </div>
     <div>
       <p className="text-sm text-slate-500 font-medium">{label}</p>
-      <p className="text-2xl font-bold text-slate-800">{prefix}{value.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })}</p>
+      <p className="text-2xl font-bold text-slate-800">{prefix}{value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
     </div>
   </div>
 );
 
-const App: React.FC = () => {
-  // Authentication State
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return sessionStorage.getItem('is_auth') === 'true';
-  });
-  const [loginPass, setLoginPass] = useState('');
-  const [loginError, setLoginError] = useState(false);
-  const [showLoginPass, setShowLoginPass] = useState(false);
+const StatusBadge: React.FC<{ status: OrderStatus }> = ({ status }) => {
+  const styles: Record<OrderStatus, string> = {
+    [OrderStatus.PENDING]: 'bg-slate-100 text-slate-600 border-slate-200',
+    [OrderStatus.PROCESSING]: 'bg-blue-100 text-blue-700 border-blue-200',
+    [OrderStatus.ON_HOLD]: 'bg-orange-100 text-orange-700 border-orange-200',
+    [OrderStatus.COMPLETED]: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    [OrderStatus.CANCELLED]: 'bg-rose-100 text-rose-700 border-rose-200',
+    [OrderStatus.REFUNDED]: 'bg-slate-200 text-slate-700 border-slate-300',
+    [OrderStatus.FAILED]: 'bg-slate-900 text-white border-slate-900',
+  };
+  return (
+    <span className={`px-2 py-1 rounded-md text-[11px] font-bold uppercase border ${styles[status]}`}>
+      {status}
+    </span>
+  );
+};
 
-  // App Navigation State
+const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'income' | 'expense' | 'vault' | 'ai' | 'dollar' | 'accounts' | 'personal_dollar' | 'orders'>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -79,10 +83,6 @@ const App: React.FC = () => {
   
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
 
-  // Calculator State
-  const [calcAmount, setCalcAmount] = useState<string>('');
-  const [calcRate, setCalcRate] = useState<string>('');
-
   // AI State
   const [aiQuery, setAiQuery] = useState('');
   const [aiResponse, setAiResponse] = useState('');
@@ -93,8 +93,6 @@ const App: React.FC = () => {
   const [tempSellRate, setTempSellRate] = useState<string>('');
 
   useEffect(() => {
-    if (!isAuthenticated) return;
-
     const fetchData = async () => {
       setIsSyncing(true);
       try {
@@ -113,24 +111,7 @@ const App: React.FC = () => {
       }
     };
     fetchData();
-  }, [isAuthenticated]);
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (loginPass === APP_PASSWORD) {
-      setIsAuthenticated(true);
-      sessionStorage.setItem('is_auth', 'true');
-      setLoginError(false);
-    } else {
-      setLoginError(true);
-      setLoginPass('');
-    }
-  };
-
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    sessionStorage.removeItem('is_auth');
-  };
+  }, []);
 
   const syncModule = async (module: keyof AppState, data: any) => {
     setIsSyncing(true);
@@ -144,19 +125,15 @@ const App: React.FC = () => {
       type, amount, category, note, accountName,
       date: new Date().toISOString().split('T')[0]
     };
-    setTransactions(prev => {
-      const updated = [newTx, ...prev];
-      syncModule('transactions', updated);
-      return updated;
-    });
+    const updated = [newTx, ...transactions];
+    setTransactions(updated);
+    syncModule('transactions', updated);
   };
 
   const deleteTransaction = (id: string) => {
-    setTransactions(prev => {
-      const updated = prev.filter(t => t.id !== id);
-      syncModule('transactions', updated);
-      return updated;
-    });
+    const updated = transactions.filter(t => t.id !== id);
+    setTransactions(updated);
+    syncModule('transactions', updated);
   };
 
   const addVaultItem = (siteName: string, username: string, password: string, note: string) => {
@@ -164,19 +141,15 @@ const App: React.FC = () => {
       id: Math.random().toString(36).substr(2, 9),
       siteName, username, password, note
     };
-    setVault(prev => {
-      const updated = [newItem, ...prev];
-      syncModule('vault', updated);
-      return updated;
-    });
+    const updated = [newItem, ...vault];
+    setVault(updated);
+    syncModule('vault', updated);
   };
 
   const deleteVaultItem = (id: string) => {
-    setVault(prev => {
-      const updated = prev.filter(v => v.id !== id);
-      syncModule('vault', updated);
-      return updated;
-    });
+    const updated = vault.filter(v => v.id !== id);
+    setVault(updated);
+    syncModule('vault', updated);
   };
 
   const addPersonalDollar = (amount: number, rate: number, purpose: string, note: string) => {
@@ -185,19 +158,38 @@ const App: React.FC = () => {
       amount, rate, purpose, note,
       date: new Date().toISOString().split('T')[0]
     };
-    setPersonalDollarUsage(prev => {
-      const updated = [newItem, ...prev];
-      syncModule('personalDollarUsage', updated);
-      return updated;
-    });
+    const updated = [newItem, ...personalDollarUsage];
+    setPersonalDollarUsage(updated);
+    syncModule('personalDollarUsage', updated);
   };
 
   const deletePersonalDollar = (id: string) => {
-    setPersonalDollarUsage(prev => {
-      const updated = prev.filter(p => p.id !== id);
-      syncModule('personalDollarUsage', updated);
-      return updated;
-    });
+    const updated = personalDollarUsage.filter(p => p.id !== id);
+    setPersonalDollarUsage(updated);
+    syncModule('personalDollarUsage', updated);
+  };
+
+  const addOrder = (orderNumber: string, customerName: string, amount: number, status: OrderStatus, note: string) => {
+    const newOrder: Order = {
+      id: Math.random().toString(36).substr(2, 9),
+      orderNumber, customerName, amount, status, note,
+      date: new Date().toISOString().split('T')[0]
+    };
+    const updated = [newOrder, ...orders];
+    setOrders(updated);
+    syncModule('orders', updated);
+  };
+
+  const updateOrderStatus = (id: string, status: OrderStatus) => {
+    const updated = orders.map(o => o.id === id ? { ...o, status } : o);
+    setOrders(updated);
+    syncModule('orders', updated);
+  };
+
+  const deleteOrder = (id: string) => {
+    const updated = orders.filter(o => o.id !== id);
+    setOrders(updated);
+    syncModule('orders', updated);
   };
 
   const addDollarTx = (buyRate: number, sellRate: number | undefined, quantity: number, note: string, accountName?: string) => {
@@ -209,56 +201,35 @@ const App: React.FC = () => {
     if (accountName) {
       addTransaction(TransactionType.EXPENSE, buyRate * quantity, "ডলার ক্রয়", `পরিমাণ: $${quantity}`, accountName);
     }
-    setDollarTransactions(prev => {
-      const updated = [newTx, ...prev];
-      syncModule('dollarTransactions', updated);
-      return updated;
-    });
+    const updated = [newTx, ...dollarTransactions];
+    setDollarTransactions(updated);
+    syncModule('dollarTransactions', updated);
   };
 
   const updateDollarSellRate = (id: string, sellRate: number) => {
-    const targetTx = dollarTransactions.find(t => t.id === id);
-    if (!targetTx) return;
-
     const updated = dollarTransactions.map(t => t.id === id ? { ...t, sellRate, sellDate: new Date().toISOString().split('T')[0] } : t);
     setDollarTransactions(updated);
     syncModule('dollarTransactions', updated);
-
-    if (targetTx.accountName) {
-       addTransaction(
-         TransactionType.INCOME, 
-         sellRate * targetTx.quantity, 
-         "ডলার বিক্রয়", 
-         `পরিমাণ: $${targetTx.quantity} (বিক্রয় লব্ধ টাকা)`, 
-         targetTx.accountName
-       );
-    }
     setEditingSellId(null);
   };
 
   const deleteDollarTx = (id: string) => {
-    setDollarTransactions(prev => {
-      const updated = prev.filter(t => t.id !== id);
-      syncModule('dollarTransactions', updated);
-      return updated;
-    });
+    const updated = dollarTransactions.filter(t => t.id !== id);
+    setDollarTransactions(updated);
+    syncModule('dollarTransactions', updated);
   };
 
   const addAccount = (account: Omit<Account, 'id'>) => {
     const newAccount: Account = { ...account, id: Math.random().toString(36).substr(2, 9) };
-    setAccounts(prev => {
-      const updated = [...prev, newAccount];
-      syncModule('accounts', updated);
-      return updated;
-    });
+    const updated = [...accounts, newAccount];
+    setAccounts(updated);
+    syncModule('accounts', updated);
   };
 
   const deleteAccount = (id: string) => {
-    setAccounts(prev => {
-      const updated = prev.filter(a => a.id !== id);
-      syncModule('accounts', updated);
-      return updated;
-    });
+    const updated = accounts.filter(a => a.id !== id);
+    setAccounts(updated);
+    syncModule('accounts', updated);
   };
 
   const handleAiAsk = async () => {
@@ -275,14 +246,13 @@ const App: React.FC = () => {
   const balance = totalIncome - totalExpense;
   const soldTxs = dollarTransactions.filter(t => t.sellRate !== undefined);
   const totalDollarProfit = soldTxs.reduce((acc, curr) => acc + (curr.sellRate! - curr.buyRate) * curr.quantity, 0);
+  const totalOrderSales = orders.filter(o => o.status === OrderStatus.COMPLETED).reduce((s, o) => s + o.amount, 0);
 
   const getAccountBalance = (accountName: string) => {
     const inc = transactions.filter(t => t.type === TransactionType.INCOME && t.accountName === accountName).reduce((s, t) => s + t.amount, 0);
     const exp = transactions.filter(t => t.type === TransactionType.EXPENSE && t.accountName === accountName).reduce((s, t) => s + t.amount, 0);
     return inc - exp;
   };
-
-  const totalAccountBalance = accounts.reduce((acc, curr) => acc + getAccountBalance(curr.name), 0);
 
   const getAccountIcon = (type: AccountType) => {
     switch (type) {
@@ -297,74 +267,6 @@ const App: React.FC = () => {
     setShowPasswordMap(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // --- Login Screen Render ---
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
-        <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl shadow-blue-100 p-8 border border-slate-100 animate-fadeIn">
-          <div className="text-center mb-8">
-            <div className="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-200">
-              <Wallet className="text-white w-10 h-10" />
-            </div>
-            <h1 className="text-2xl font-black text-slate-800">আমার হিসাব</h1>
-            <p className="text-slate-400 text-sm font-medium mt-1">পাসওয়ার্ড দিয়ে লগইন করুন</p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div>
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">অ্যাক্সেস পাসওয়ার্ড</label>
-              <div className="relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                  <KeyRound size={20} />
-                </div>
-                <input
-                  type={showLoginPass ? "text" : "password"}
-                  value={loginPass}
-                  onChange={(e) => {
-                    setLoginPass(e.target.value);
-                    setLoginError(false);
-                  }}
-                  autoFocus
-                  className={`w-full pl-12 pr-12 py-4 bg-slate-50 border-2 ${loginError ? 'border-rose-400' : 'border-transparent'} rounded-2xl outline-none focus:bg-white focus:border-blue-500 transition-all font-medium text-lg`}
-                  placeholder="••••••••"
-                />
-                <button 
-                  type="button" 
-                  onClick={() => setShowLoginPass(!showLoginPass)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-500"
-                >
-                  {showLoginPass ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-              {loginError && (
-                <p className="text-rose-500 text-xs font-bold mt-2 flex items-center gap-1">
-                  <AlertCircle size={14} /> ভুল পাসওয়ার্ড! আবার চেষ্টা করুন।
-                </p>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2 transition-all transform active:scale-[0.98] shadow-lg shadow-blue-200"
-            >
-              <LogIn size={20} />
-              প্রবেশ করুন
-            </button>
-          </form>
-
-          <p className="text-center text-[10px] text-slate-300 uppercase font-bold mt-8 tracking-tighter">
-            Personal & Secure Financial Management System
-          </p>
-        </div>
-        <style>{`
-          @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-          .animate-fadeIn { animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        `}</style>
-      </div>
-    );
-  }
-
-  // --- Main App Render ---
   return (
     <div className="min-h-screen flex bg-slate-50 text-slate-900 overflow-x-hidden">
       {isSyncing && (
@@ -384,8 +286,9 @@ const App: React.FC = () => {
           <h1 className="text-2xl font-bold text-blue-700 flex items-center gap-2"><Wallet className="w-8 h-8" />আমার হিসাব</h1>
           <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-semibold">Financial Cloud Sync</p>
         </div>
-        <nav className="mt-4 px-4 space-y-2 overflow-y-auto max-h-[calc(100vh-320px)]">
+        <nav className="mt-4 px-4 space-y-2 overflow-y-auto max-h-[calc(100vh-280px)]">
           <SidebarItem icon={<LayoutDashboard size={20} />} label="ড্যাশবোর্ড" active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} />
+          <SidebarItem icon={<Package size={20} />} label="অর্ডার ম্যানেজমেন্ট" active={activeTab === 'orders'} onClick={() => { setActiveTab('orders'); setSidebarOpen(false); }} />
           <SidebarItem icon={<CreditCard size={20} />} label="অ্যাকাউন্টস" active={activeTab === 'accounts'} onClick={() => { setActiveTab('accounts'); setSidebarOpen(false); }} />
           <SidebarItem icon={<TrendingUp size={20} />} label="আয়ের তালিকা" active={activeTab === 'income'} onClick={() => { setActiveTab('income'); setSidebarOpen(false); }} />
           <SidebarItem icon={<TrendingDown size={20} />} label="ব্যয়ের তালিকা" active={activeTab === 'expense'} onClick={() => { setActiveTab('expense'); setSidebarOpen(false); }} />
@@ -397,19 +300,13 @@ const App: React.FC = () => {
           </div>
         </nav>
         <div className="absolute bottom-8 left-0 w-full px-6 space-y-3">
-          <button 
-            onClick={handleLogout}
-            className="w-full flex items-center gap-2 text-rose-500 text-xs font-bold uppercase p-2 hover:bg-rose-50 rounded-lg transition-colors mb-2"
-          >
-            <XCircle size={14} /> সাইন আউট
-          </button>
           <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 border rounded-lg">
              <Cloud size={14} className={dbStatus === 'connected' ? 'text-emerald-500' : 'text-rose-500'} />
              <span className="text-[10px] font-bold uppercase text-slate-500">{dbStatus === 'connected' ? 'MySQL Online' : 'Offline'}</span>
           </div>
           <div className="bg-blue-600 p-4 rounded-xl text-white shadow-lg shadow-blue-200">
             <p className="text-[10px] font-bold uppercase opacity-80 mb-1">মোট ব্যালেন্স</p>
-            <p className="text-xl font-black">৳{balance.toLocaleString(undefined, { minimumFractionDigits: 1 })}</p>
+            <p className="text-xl font-black">৳{balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
           </div>
         </div>
       </aside>
@@ -422,7 +319,7 @@ const App: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <StatCard label="মোট আয়" value={totalIncome} icon={<TrendingUp />} color="bg-emerald-500" />
               <StatCard label="মোট ব্যয়" value={totalExpense} icon={<TrendingDown />} color="bg-rose-500" />
-              <StatCard label="ওয়ালেট ব্যালেন্স" value={totalAccountBalance} icon={<Wallet />} color="bg-blue-500" />
+              <StatCard label="অর্ডার সেলস" value={totalOrderSales} icon={<Package />} color="bg-orange-500" />
               <StatCard label="ডলার প্রফিট" value={totalDollarProfit} icon={<TrendingUp />} color="bg-indigo-500" />
             </div>
             
@@ -441,64 +338,53 @@ const App: React.FC = () => {
                         </div>
                       </div>
                       <p className={`font-black ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {t.type === TransactionType.INCOME ? '+' : '-'}৳{t.amount.toLocaleString(undefined, { minimumFractionDigits: 1 })}
+                        {t.type === TransactionType.INCOME ? '+' : '-'}৳{t.amount.toLocaleString()}
                       </p>
                     </div>
                   ))}
-                  {transactions.length === 0 && <p className="text-center py-8 text-slate-400 italic">কোনো লেনদেন নেই</p>}
                 </div>
               </Card>
               <Card title="অ্যাকাউন্ট ব্যালেন্স">
                 <div className="space-y-3">
                   {accounts.map(acc => (
-                    <div key={acc.id} className="flex justify-between items-center p-3 border-b border-slate-50 last:border-0">
+                    <div key={acc.id} className="flex justify-between items-center p-3 border-b border-slate-50">
                       <div className="flex items-center gap-3">
                         <div className="text-blue-500">{getAccountIcon(acc.type)}</div>
-                        <div>
-                          <p className="font-bold text-slate-700">{acc.name}</p>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase">{acc.providerName}</p>
-                        </div>
+                        <p className="font-bold text-slate-700">{acc.name}</p>
                       </div>
-                      <p className="font-black text-slate-800">৳{getAccountBalance(acc.name).toLocaleString(undefined, { minimumFractionDigits: 1 })}</p>
+                      <p className="font-black text-slate-800">৳{getAccountBalance(acc.name).toLocaleString()}</p>
                     </div>
                   ))}
-                  {accounts.length === 0 && <p className="text-center py-8 text-slate-400 italic">কোনো অ্যাকাউন্ট নেই</p>}
                 </div>
               </Card>
             </div>
           </div>
         )}
 
-        {/* --- Income/Expense Tabs --- */}
+        {/* Income & Expense View */}
         {(activeTab === 'income' || activeTab === 'expense') && (
           <div className="space-y-6 animate-fadeIn">
             <header><h2 className="text-2xl font-bold text-slate-800">{activeTab === 'income' ? 'আয়ের তালিকা' : 'ব্যয়ের তালিকা'}</h2></header>
             <Card title="নতুন রেকর্ড যোগ করুন">
-              <form className="grid grid-cols-1 md:grid-cols-5 gap-4" onSubmit={(e) => {
+              <form className="grid grid-cols-1 md:grid-cols-4 gap-4" onSubmit={(e) => {
                 e.preventDefault();
                 const form = e.target as HTMLFormElement;
-                const amount = form.elements.namedItem('amount') as HTMLInputElement;
-                const category = form.elements.namedItem('category') as HTMLInputElement;
-                const account = form.elements.namedItem('account') as HTMLSelectElement;
-                const note = form.elements.namedItem('note') as HTMLInputElement;
-
                 addTransaction(
                   activeTab === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE,
-                  parseFloat(amount.value),
-                  category.value,
-                  note.value || "",
-                  account.value
+                  Number(form.amount.value),
+                  form.category.value,
+                  form.note.value,
+                  form.account.value
                 );
                 form.reset();
               }}>
-                <input name="amount" type="number" step="any" placeholder="টাকার পরিমাণ" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
-                <input name="category" placeholder="ক্যাটাগরি" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
-                <select name="account" required className="px-4 py-2 border rounded-lg text-sm bg-white outline-none focus:border-blue-500">
+                <input name="amount" type="number" placeholder="টাকার পরিমাণ" required className="px-4 py-2 border rounded-lg text-sm" />
+                <input name="category" placeholder="ক্যাটাগরি (উদা: স্যালারি, ভাড়া)" required className="px-4 py-2 border rounded-lg text-sm" />
+                <select name="account" required className="px-4 py-2 border rounded-lg text-sm bg-white">
                   <option value="">অ্যাকাউন্ট সিলেক্ট</option>
                   {accounts.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
                 </select>
-                <input name="note" placeholder="নোট (অপশনাল)" className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
-                <button type="submit" className={`px-4 py-2 text-white font-bold rounded-lg text-sm transition-opacity hover:opacity-90 ${activeTab === 'income' ? 'bg-emerald-600' : 'bg-rose-600'}`}>সেভ করুন</button>
+                <button type="submit" className={`px-4 py-2 text-white font-bold rounded-lg text-sm ${activeTab === 'income' ? 'bg-emerald-600' : 'bg-rose-600'}`}>সেভ করুন</button>
               </form>
             </Card>
             <Card title="লেনদেনের হিস্টোরি">
@@ -509,11 +395,11 @@ const App: React.FC = () => {
                   </thead>
                   <tbody>
                     {transactions.filter(t => t.type === (activeTab === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE)).map(t => (
-                      <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                      <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50">
                         <td className="py-4 text-xs text-slate-500">{t.date}</td>
                         <td className="py-4 font-bold text-slate-700">{t.category}</td>
                         <td className="py-4 text-sm text-slate-600">{t.accountName}</td>
-                        <td className={`py-4 text-right font-black ${activeTab === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>৳{t.amount.toLocaleString(undefined, { minimumFractionDigits: 1 })}</td>
+                        <td className={`py-4 text-right font-black ${activeTab === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>৳{t.amount.toLocaleString()}</td>
                         <td className="py-4 text-right"><button onClick={() => deleteTransaction(t.id)} className="text-slate-200 hover:text-rose-500"><Trash2 size={16}/></button></td>
                       </tr>
                     ))}
@@ -524,193 +410,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* --- Dollar Trading Tab --- */}
-        {activeTab === 'dollar' && (
-          <div className="space-y-6 animate-fadeIn">
-             <header><h2 className="text-2xl font-bold text-slate-800">ডলার ট্রেডিং</h2></header>
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 shadow-sm">
-                <div className="flex items-center gap-2 mb-4 text-blue-700">
-                  <Calculator size={20} />
-                  <h3 className="font-bold">কুইক ক্যালকুলেটর</h3>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">পরিমাণ ($)</label>
-                    <input value={calcAmount} onChange={(e) => setCalcAmount(e.target.value)} type="number" step="any" placeholder="0.00" className="w-full px-4 py-2 border rounded-lg text-sm bg-white outline-none focus:border-blue-400" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">রেট (৳)</label>
-                    <input value={calcRate} onChange={(e) => setCalcRate(e.target.value)} type="number" step="any" placeholder="0.00" className="w-full px-4 py-2 border rounded-lg text-sm bg-white outline-none focus:border-blue-400" />
-                  </div>
-                  <div className="flex flex-col justify-end">
-                    <div className="bg-white px-4 py-2 border rounded-lg h-[40px] flex items-center justify-between shadow-inner">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">মোট টাকা:</span>
-                      <span className="font-black text-blue-700">৳{(parseFloat(calcAmount || '0') * parseFloat(calcRate || '0')).toLocaleString(undefined, { minimumFractionDigits: 1 })}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <Card title="নতুন লেনদেন">
-                <form className="grid grid-cols-1 md:grid-cols-4 gap-4" onSubmit={(e) => {
-                  e.preventDefault();
-                  const form = e.target as HTMLFormElement;
-                  const buy = form.elements.namedItem('buy') as HTMLInputElement;
-                  const qty = form.elements.namedItem('qty') as HTMLInputElement;
-                  const acc = form.elements.namedItem('acc') as HTMLSelectElement;
-                  addDollarTx(parseFloat(buy.value), undefined, parseFloat(qty.value), "", acc.value);
-                  form.reset();
-                }}>
-                  <input name="buy" type="number" step="any" placeholder="৳ বাই রেট" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
-                  <input name="qty" type="number" step="any" placeholder="$ পরিমাণ" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
-                  <select name="acc" required className="px-4 py-2 border rounded-lg text-sm bg-white outline-none focus:border-blue-500">
-                     <option value="">অ্যাকাউন্ট সিলেক্ট</option>
-                     {accounts.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
-                  </select>
-                  <button type="submit" className="bg-indigo-600 text-white rounded-lg font-bold text-sm hover:bg-indigo-700 transition-colors">বাই করুন</button>
-                </form>
-              </Card>
-              
-              <Card title="ট্রেডিং টেবিল">
-                <div className="overflow-x-auto">
-                   <table className="w-full text-left">
-                     <thead className="text-[10px] uppercase text-slate-400 border-b">
-                        <tr>
-                          <th className="pb-3">তারিখ</th>
-                          <th className="pb-3">পরিমাণ</th>
-                          <th className="pb-3 text-right">বাই রেট</th>
-                          <th className="pb-3 text-right">সেল রেট</th>
-                          <th className="pb-3 text-right">প্রফিট/ডলার</th>
-                          <th className="pb-3 text-right">মোট লাভ</th>
-                          <th className="pb-3 text-right">অ্যাকশন</th>
-                        </tr>
-                     </thead>
-                     <tbody>
-                       {dollarTransactions.map(t => {
-                         const profitPerDollar = t.sellRate ? (t.sellRate - t.buyRate) : 0;
-                         const totalProfit = profitPerDollar * t.quantity;
-                         return (
-                           <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                              <td className="py-4 text-xs text-slate-500">{t.date}</td>
-                              <td className="py-4 font-bold text-slate-800">${t.quantity.toLocaleString(undefined, { minimumFractionDigits: 1 })}</td>
-                              <td className="py-4 text-right text-slate-600">৳{t.buyRate.toLocaleString(undefined, { minimumFractionDigits: 1 })}</td>
-                              <td className="py-4 text-right">
-                                 {t.sellRate ? <span className="text-emerald-600 font-bold">৳{t.sellRate.toLocaleString(undefined, { minimumFractionDigits: 1 })}</span> : 
-                                   editingSellId === t.id ? (
-                                     <div className="flex gap-1 justify-end">
-                                        <input autoFocus type="number" step="any" onChange={(e) => setTempSellRate(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && updateDollarSellRate(t.id, parseFloat(tempSellRate))} className="w-16 border rounded text-xs px-2 py-1 outline-none focus:border-emerald-500" placeholder="রেট" />
-                                        <button onClick={() => updateDollarSellRate(t.id, parseFloat(tempSellRate))} className="text-emerald-500"><CheckCircle size={16}/></button>
-                                     </div>
-                                   ) : (
-                                     <button onClick={() => setEditingSellId(t.id)} className="text-[10px] font-bold bg-blue-50 text-blue-600 px-3 py-1 rounded border border-blue-100 hover:bg-blue-600 hover:text-white transition-all shadow-sm">Sell Now</button>
-                                   )
-                                 }
-                              </td>
-                              <td className={`py-4 text-right font-medium ${profitPerDollar > 0 ? 'text-emerald-600' : profitPerDollar < 0 ? 'text-rose-600' : 'text-slate-400'}`}>
-                                {t.sellRate ? `৳${profitPerDollar.toLocaleString(undefined, { minimumFractionDigits: 1 })}` : '-'}
-                              </td>
-                              <td className={`py-4 text-right font-black ${totalProfit > 0 ? 'text-emerald-600' : totalProfit < 0 ? 'text-rose-600' : 'text-slate-400'}`}>
-                                {t.sellRate ? `৳${totalProfit.toLocaleString(undefined, { minimumFractionDigits: 1 })}` : '-'}
-                              </td>
-                              <td className="py-4 text-right"><button onClick={() => deleteDollarTx(t.id)} className="text-slate-200 hover:text-rose-500"><Trash2 size={16}/></button></td>
-                           </tr>
-                         );
-                       })}
-                     </tbody>
-                   </table>
-                </div>
-              </Card>
-          </div>
-        )}
-
-        {/* --- Other Tabs --- */}
-        {activeTab === 'personal_dollar' && (
-          <div className="space-y-6 animate-fadeIn">
-            <header><h2 className="text-2xl font-bold text-slate-800">পার্সোনাল ডলার ইউজ</h2></header>
-            <Card title="ডলার ব্যবহারের তথ্য">
-              <form className="grid grid-cols-1 md:grid-cols-4 gap-4" onSubmit={(e) => {
-                e.preventDefault();
-                const form = e.target as HTMLFormElement;
-                const amount = form.elements.namedItem('amount') as HTMLInputElement;
-                const rate = form.elements.namedItem('rate') as HTMLInputElement;
-                const purpose = form.elements.namedItem('purpose') as HTMLInputElement;
-                addPersonalDollar(parseFloat(amount.value), parseFloat(rate.value), purpose.value, "");
-                form.reset();
-              }}>
-                <input name="amount" type="number" step="any" placeholder="পরিমাণ ($)" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
-                <input name="rate" type="number" step="any" placeholder="রেট (৳)" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
-                <input name="purpose" placeholder="উদ্দেশ্য" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
-                <button type="submit" className="bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700 transition-colors">সেভ করুন</button>
-              </form>
-            </Card>
-            <Card title="ইউসেজ লিস্ট">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="text-[10px] uppercase text-slate-400 border-b">
-                    <tr><th className="pb-3">তারিখ</th><th className="pb-3">উদ্দেশ্য</th><th className="pb-3 text-right">ডলার ($)</th><th className="pb-3 text-right">রেট (৳)</th><th className="pb-3 text-right">মোট (৳)</th><th className="pb-3 text-right">অ্যাকশন</th></tr>
-                  </thead>
-                  <tbody>
-                    {personalDollarUsage.map(p => (
-                      <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                        <td className="py-4 text-xs text-slate-500">{p.date}</td>
-                        <td className="py-4 font-bold text-slate-700">{p.purpose}</td>
-                        <td className="py-4 text-right font-medium">${p.amount.toLocaleString(undefined, { minimumFractionDigits: 1 })}</td>
-                        <td className="py-4 text-right text-slate-600">৳{p.rate.toLocaleString(undefined, { minimumFractionDigits: 1 })}</td>
-                        <td className="py-4 text-right font-black">৳{(p.amount * p.rate).toLocaleString(undefined, { minimumFractionDigits: 1 })}</td>
-                        <td className="py-4 text-right"><button onClick={() => deletePersonalDollar(p.id)} className="text-slate-200 hover:text-rose-500"><Trash2 size={16}/></button></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {activeTab === 'accounts' && (
-          <div className="space-y-6 animate-fadeIn">
-             <header><h2 className="text-2xl font-bold text-slate-800">অ্যাকাউন্টস</h2></header>
-             <Card title="নতুন অ্যাকাউন্ট">
-              <form className="grid grid-cols-1 md:grid-cols-3 gap-4" onSubmit={(e) => {
-                e.preventDefault();
-                const form = e.target as HTMLFormElement;
-                const accName = form.elements.namedItem('accName') as HTMLInputElement;
-                const accType = form.elements.namedItem('accType') as HTMLSelectElement;
-                const provider = form.elements.namedItem('provider') as HTMLInputElement;
-                addAccount({ name: accName.value, type: accType.value as AccountType, providerName: provider.value });
-                form.reset();
-              }}>
-                <input name="accName" placeholder="নাম" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
-                <select name="accType" className="px-4 py-2 border rounded-lg bg-white text-sm outline-none focus:border-blue-500">
-                    <option value="Mobile Wallet">মোবাইল ওয়ালেট</option>
-                    <option value="Bank">ব্যাংক</option>
-                    <option value="Cash">ক্যাশ</option>
-                </select>
-                <input name="provider" placeholder="প্রোভাইডার (বিকাশ, ডাচ-বাংলা ইত্যাদি)" className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
-                <button type="submit" className="bg-blue-600 text-white rounded-lg font-bold text-sm col-span-full py-2 hover:bg-blue-700 transition-colors shadow-md">অ্যাকাউন্ট সেভ করুন</button>
-              </form>
-            </Card>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {accounts.map(acc => (
-                <div key={acc.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative group hover:shadow-md transition-shadow">
-                  <button onClick={() => deleteAccount(acc.id)} className="absolute top-4 right-4 text-slate-200 hover:text-rose-600 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={18}/></button>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">{getAccountIcon(acc.type)}</div>
-                    <div>
-                      <h4 className="font-bold text-slate-800">{acc.name}</h4>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase">{acc.providerName}</p>
-                    </div>
-                  </div>
-                  <div className="bg-blue-600 p-4 rounded-xl text-white shadow-md shadow-blue-100">
-                    <p className="text-[10px] font-bold opacity-70 uppercase mb-1">কারেন্ট ব্যালেন্স</p>
-                    <p className="text-2xl font-black">৳{getAccountBalance(acc.name).toLocaleString(undefined, { minimumFractionDigits: 1 })}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
+        {/* Vault View */}
         {activeTab === 'vault' && (
           <div className="space-y-6 animate-fadeIn">
             <header><h2 className="text-2xl font-bold text-slate-800">পাসওয়ার্ড ভল্ট</h2></header>
@@ -718,22 +418,19 @@ const App: React.FC = () => {
               <form className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" onSubmit={(e) => {
                 e.preventDefault();
                 const form = e.target as HTMLFormElement;
-                const site = form.elements.namedItem('site') as HTMLInputElement;
-                const user = form.elements.namedItem('user') as HTMLInputElement;
-                const pass = form.elements.namedItem('pass') as HTMLInputElement;
-                addVaultItem(site.value, user.value, pass.value, "");
+                addVaultItem(form.site.value, form.user.value, form.pass.value, "");
                 form.reset();
               }}>
-                <input name="site" placeholder="সাইটের নাম" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
-                <input name="user" placeholder="ইউজারনেম/ইমেইল" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
-                <input name="pass" type="password" placeholder="পাসওয়ার্ড" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
-                <button type="submit" className="bg-slate-800 text-white rounded-lg font-bold text-sm px-4 py-2 hover:bg-slate-900 transition-colors">ভল্টে রাখুন</button>
+                <input name="site" placeholder="সাইটের নাম (উদা: ফেসবুক)" required className="px-4 py-2 border rounded-lg text-sm" />
+                <input name="user" placeholder="ইউজারনেম/ইমেইল" required className="px-4 py-2 border rounded-lg text-sm" />
+                <input name="pass" type="password" placeholder="পাসওয়ার্ড" required className="px-4 py-2 border rounded-lg text-sm" />
+                <button type="submit" className="bg-slate-800 text-white rounded-lg font-bold text-sm px-4 py-2">ভল্টে রাখুন</button>
               </form>
             </Card>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {vault.map(item => (
-                <div key={item.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative group hover:shadow-md transition-shadow">
-                  <button onClick={() => deleteVaultItem(item.id)} className="absolute top-4 right-4 text-slate-200 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={18}/></button>
+                <div key={item.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative group">
+                  <button onClick={() => deleteVaultItem(item.id)} className="absolute top-4 right-4 text-slate-200 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={18}/></button>
                   <div className="flex items-center gap-3 mb-4">
                     <div className="p-3 bg-blue-50 text-blue-600 rounded-xl"><Lock size={20}/></div>
                     <h4 className="font-bold text-slate-800 truncate pr-8">{item.siteName}</h4>
@@ -759,6 +456,48 @@ const App: React.FC = () => {
           </div>
         )}
 
+        {/* Personal Dollar Usage */}
+        {activeTab === 'personal_dollar' && (
+          <div className="space-y-6 animate-fadeIn">
+            <header><h2 className="text-2xl font-bold text-slate-800">পার্সোনাল ডলার ইউজ</h2></header>
+            <Card title="ডলার ব্যবহারের তথ্য">
+              <form className="grid grid-cols-1 md:grid-cols-4 gap-4" onSubmit={(e) => {
+                e.preventDefault();
+                const form = e.target as HTMLFormElement;
+                addPersonalDollar(Number(form.amount.value), Number(form.rate.value), form.purpose.value, "");
+                form.reset();
+              }}>
+                <input name="amount" type="number" placeholder="পরিমাণ ($)" required className="px-4 py-2 border rounded-lg text-sm" />
+                <input name="rate" type="number" placeholder="রেট (৳)" required className="px-4 py-2 border rounded-lg text-sm" />
+                <input name="purpose" placeholder="উদ্দেশ্য (উদা: Netflix)" required className="px-4 py-2 border rounded-lg text-sm" />
+                <button type="submit" className="bg-blue-600 text-white rounded-lg font-bold text-sm">সেভ করুন</button>
+              </form>
+            </Card>
+            <Card title="ইউসেজ লিস্ট">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="text-[10px] uppercase text-slate-400 border-b">
+                    <tr><th className="pb-3">তারিখ</th><th className="pb-3">উদ্দেশ্য</th><th className="pb-3 text-right">ডলার ($)</th><th className="pb-3 text-right">রেট (৳)</th><th className="pb-3 text-right">মোট (৳)</th><th className="pb-3 text-right">অ্যাকশন</th></tr>
+                  </thead>
+                  <tbody>
+                    {personalDollarUsage.map(p => (
+                      <tr key={p.id} className="border-b border-slate-50">
+                        <td className="py-4 text-xs text-slate-500">{p.date}</td>
+                        <td className="py-4 font-bold text-slate-700">{p.purpose}</td>
+                        <td className="py-4 text-right font-medium">${p.amount}</td>
+                        <td className="py-4 text-right">৳{p.rate}</td>
+                        <td className="py-4 text-right font-black">৳{(p.amount * p.rate).toLocaleString()}</td>
+                        <td className="py-4 text-right"><button onClick={() => deletePersonalDollar(p.id)} className="text-slate-200 hover:text-rose-500"><Trash2 size={16}/></button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* AI Assistant View */}
         {activeTab === 'ai' && (
           <div className="space-y-6 animate-fadeIn h-full flex flex-col">
             <header><h2 className="text-2xl font-bold text-slate-800">এআই অ্যাসিস্ট্যান্ট</h2></header>
@@ -768,16 +507,16 @@ const App: React.FC = () => {
                   <div className="h-full flex flex-col items-center justify-center text-center opacity-40">
                     <Bot size={64} className="mb-4 text-blue-600" />
                     <p className="font-bold text-lg">আমি আপনার পার্সোনাল হিসাবরক্ষক।</p>
-                    <p className="text-sm max-w-xs mx-auto mt-2">আপনার খরচ বা সেভিংস নিয়ে যেকোনো প্রশ্ন করতে পারেন।</p>
+                    <p className="text-sm">জিজ্ঞেস করুন: "আমার এই মাসে কত খরচ হয়েছে?" অথবা "আমি কিভাবে টাকা বাঁচাতে পারি?"</p>
                   </div>
                 )}
                 {aiResponse && (
-                  <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 shadow-sm">
+                  <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
                     <div className="flex items-center gap-2 mb-3 text-blue-600">
                       <Bot size={20}/>
-                      <span className="font-bold text-sm">AI পরামর্শ:</span>
+                      <span className="font-bold text-sm">Gemini AI পরামর্শ:</span>
                     </div>
-                    <div className="prose prose-blue text-slate-700 leading-relaxed whitespace-pre-wrap font-medium">
+                    <div className="prose prose-blue text-slate-700 leading-relaxed whitespace-pre-wrap">
                       {aiResponse}
                     </div>
                   </div>
@@ -792,12 +531,176 @@ const App: React.FC = () => {
                     placeholder="আপনার প্রশ্ন এখানে লিখুন..." 
                     className="w-full pl-6 pr-14 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all shadow-inner"
                   />
-                  <button onClick={handleAiAsk} disabled={aiLoading} className="absolute right-3 top-2 bottom-2 bg-blue-600 text-white px-4 rounded-xl shadow-md transition-transform active:scale-95 disabled:opacity-50">
+                  <button 
+                    onClick={handleAiAsk} 
+                    disabled={aiLoading}
+                    className="absolute right-3 top-2 bottom-2 bg-blue-600 text-white px-4 rounded-xl hover:bg-blue-700 disabled:bg-slate-300 transition-colors flex items-center justify-center"
+                  >
                     {aiLoading ? <RefreshCw className="animate-spin" size={20}/> : <Send size={20}/>}
                   </button>
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Re-using accounts, orders, dollar tabs logic from original file but making sure they stay intact */}
+        {activeTab === 'accounts' && (
+          <div className="space-y-6 animate-fadeIn">
+             <header><h2 className="text-2xl font-bold text-slate-800">অ্যাকাউন্টস</h2></header>
+             <Card title="নতুন অ্যাকাউন্ট">
+              <form className="grid grid-cols-1 md:grid-cols-3 gap-4" onSubmit={(e) => {
+                e.preventDefault();
+                const form = e.target as HTMLFormElement;
+                addAccount({ name: form.accName.value, type: form.accType.value as AccountType, providerName: form.provider.value });
+                form.reset();
+              }}>
+                <input name="accName" placeholder="নাম (উদা: পার্সোনাল বিকাশ)" required className="px-4 py-2 border rounded-lg text-sm" />
+                <select name="accType" className="px-4 py-2 border rounded-lg bg-white text-sm">
+                    <option value="Mobile Wallet">মোবাইল ওয়ালেট</option>
+                    <option value="Bank">ব্যাংক</option>
+                    <option value="Cash">ক্যাশ</option>
+                </select>
+                <input name="provider" placeholder="প্রোভাইডার (উদা: বিকাশ, ডাচ-বাংলা)" className="px-4 py-2 border rounded-lg text-sm" />
+                <button type="submit" className="bg-blue-600 text-white rounded-lg font-bold text-sm col-span-full py-2">অ্যাকাউন্ট সেভ করুন</button>
+              </form>
+            </Card>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {accounts.map(acc => (
+                <div key={acc.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative group">
+                  <button onClick={() => deleteAccount(acc.id)} className="absolute top-4 right-4 text-slate-200 hover:text-rose-600 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={18}/></button>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">{getAccountIcon(acc.type)}</div>
+                    <div>
+                      <h4 className="font-bold text-slate-800">{acc.name}</h4>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase">{acc.providerName}</p>
+                    </div>
+                  </div>
+                  <div className="bg-blue-600 p-4 rounded-xl text-white shadow-md shadow-blue-100">
+                    <p className="text-[10px] font-bold opacity-70 uppercase mb-1">ব্যালেন্স</p>
+                    <p className="text-2xl font-black">৳{getAccountBalance(acc.name).toLocaleString()}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'orders' && (
+          <div className="space-y-6 animate-fadeIn">
+            <header>
+              <h2 className="text-2xl font-bold text-slate-800">অর্ডার ম্যানেজমেন্ট</h2>
+            </header>
+            <Card title="নতুন অর্ডার যোগ করুন">
+              <form className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4" onSubmit={(e) => {
+                e.preventDefault();
+                const form = e.target as HTMLFormElement;
+                addOrder(
+                  (form.elements.namedItem('orderNum') as HTMLInputElement).value,
+                  (form.elements.namedItem('customer') as HTMLInputElement).value,
+                  Number((form.elements.namedItem('amount') as HTMLInputElement).value),
+                  (form.elements.namedItem('status') as HTMLSelectElement).value as OrderStatus,
+                  (form.elements.namedItem('note') as HTMLInputElement).value
+                );
+                form.reset();
+              }}>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">অর্ডার #</label>
+                  <input name="orderNum" type="text" placeholder="1234" required className="w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-1 focus:ring-blue-500" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">কাস্টমার</label>
+                  <input name="customer" type="text" placeholder="নাম" required className="w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-1 focus:ring-blue-500" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">টাকা</label>
+                  <input name="amount" type="number" placeholder="৳" required className="w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-1 focus:ring-blue-500" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">স্ট্যাটাস</label>
+                  <select name="status" className="w-full px-3 py-2 text-sm rounded-lg border outline-none bg-white">
+                    {Object.values(OrderStatus).map(status => <option key={status} value={status}>{status}</option>)}
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <button type="submit" className="w-full bg-slate-800 text-white px-4 py-2 text-sm rounded-lg font-bold">সেভ</button>
+                </div>
+              </form>
+            </Card>
+            <Card title="অর্ডার লিস্ট">
+               <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="text-slate-400 border-b border-slate-100 text-[10px] uppercase">
+                    <tr><th className="pb-4">অর্ডার</th><th className="pb-4">কাস্টমার</th><th className="pb-4">তারিখ</th><th className="pb-4">স্ট্যাটাস</th><th className="pb-4 text-right">টোটাল</th><th className="pb-4 text-center">অ্যাকশন</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {orders.map(o => (
+                      <tr key={o.id} className="hover:bg-slate-50">
+                        <td className="py-4 font-bold text-blue-600">#{o.orderNumber}</td>
+                        <td className="py-4 text-slate-700">{o.customerName}</td>
+                        <td className="py-4 text-slate-500 text-xs">{o.date}</td>
+                        <td className="py-4"><StatusBadge status={o.status} /></td>
+                        <td className="py-4 text-right font-black">৳{o.amount.toLocaleString()}</td>
+                        <td className="py-4 text-center"><button onClick={() => deleteOrder(o.id)} className="text-slate-200 hover:text-rose-600"><Trash2 size={16} /></button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === 'dollar' && (
+          <div className="space-y-6 animate-fadeIn">
+             <header><h2 className="text-2xl font-bold text-slate-800">ডলার ট্রেডিং</h2></header>
+              <Card title="নতুন লেনদেন">
+                <form className="grid grid-cols-1 md:grid-cols-4 gap-4" onSubmit={(e) => {
+                  e.preventDefault();
+                  const form = e.target as HTMLFormElement;
+                  addDollarTx(Number(form.buy.value), undefined, Number(form.qty.value), "", form.acc.value);
+                  form.reset();
+                }}>
+                  <input name="buy" type="number" placeholder="৳ বাই রেট" required className="px-4 py-2 border rounded-lg text-sm" />
+                  <input name="qty" type="number" placeholder="$ পরিমাণ" required className="px-4 py-2 border rounded-lg text-sm" />
+                  <select name="acc" className="px-4 py-2 border rounded-lg text-sm bg-white">
+                     <option value="">অ্যাকাউন্ট সিলেক্ট</option>
+                     {accounts.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
+                  </select>
+                  <button type="submit" className="bg-indigo-600 text-white rounded-lg font-bold text-sm">বাই করুন</button>
+                </form>
+              </Card>
+              <Card title="ট্রেডিং টেবিল">
+                <div className="overflow-x-auto">
+                   <table className="w-full text-left">
+                     <thead className="text-[10px] uppercase text-slate-400 border-b">
+                        <tr><th className="pb-3">তারিখ</th><th className="pb-3">পরিমাণ</th><th className="pb-3 text-right">বাই</th><th className="pb-3 text-right">সেল</th><th className="pb-3 text-right">অ্যাকশন</th></tr>
+                     </thead>
+                     <tbody>
+                       {dollarTransactions.map(t => (
+                         <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50">
+                            <td className="py-4 text-xs text-slate-500">{t.date}</td>
+                            <td className="py-4 font-bold text-slate-800">${t.quantity}</td>
+                            <td className="py-4 text-right">৳{t.buyRate}</td>
+                            <td className="py-4 text-right">
+                               {t.sellRate ? <span className="text-emerald-600 font-bold">৳{t.sellRate}</span> : 
+                                 editingSellId === t.id ? (
+                                   <div className="flex gap-1 justify-end">
+                                      <input autoFocus type="number" onChange={(e) => setTempSellRate(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && updateDollarSellRate(t.id, Number(tempSellRate))} className="w-16 border rounded text-xs px-2 py-1" placeholder="রেট" />
+                                      <button onClick={() => updateDollarSellRate(t.id, Number(tempSellRate))} className="text-emerald-500"><CheckCircle size={16}/></button>
+                                   </div>
+                                 ) : (
+                                   <button onClick={() => setEditingSellId(t.id)} className="text-[10px] font-bold bg-blue-50 text-blue-600 px-3 py-1 rounded border border-blue-100 hover:bg-blue-600 hover:text-white transition-all">Sell Now</button>
+                                 )
+                               }
+                            </td>
+                            <td className="py-4 text-right"><button onClick={() => deleteDollarTx(t.id)} className="text-slate-200 hover:text-rose-500"><Trash2 size={16}/></button></td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
+                </div>
+              </Card>
           </div>
         )}
 
@@ -811,15 +714,9 @@ const App: React.FC = () => {
           }
           @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
           .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
-          
-          * { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
-          *::-webkit-scrollbar { width: 6px; }
-          *::-webkit-scrollbar-track { background: transparent; }
-          *::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
         `}</style>
       </main>
     </div>
   );
 };
-
 export default App;
