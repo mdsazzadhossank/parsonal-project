@@ -1,20 +1,17 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  LayoutDashboard, Wallet, TrendingDown, Lock, Bot, Plus, Trash2, Eye, EyeOff, Menu, X, 
-  RefreshCw, TrendingUp, DollarSign, Calculator, ArrowRightLeft, CreditCard, Banknote, 
-  Phone, Building2, Coins, CheckCircle2, Clock, UserCheck, ShoppingBag, Package, 
-  AlertCircle, CheckCircle, XCircle, RotateCcw, Cloud, Send, Search, KeyRound, LogIn
+  LayoutDashboard, Wallet, TrendingDown, Lock, Bot, Trash2, Eye, EyeOff, Menu, X, 
+  RefreshCw, TrendingUp, Calculator, CreditCard, Phone, Building2, Coins, 
+  ShoppingBag, AlertCircle, CheckCircle, XCircle, Send, KeyRound, LogIn, Cloud
 } from 'lucide-react';
-import { Transaction, TransactionType, VaultItem, AppState, DollarTransaction, Account, AccountType, PersonalDollarUsage, Order, OrderStatus } from './types';
+import { Transaction, TransactionType, VaultItem, AppState, DollarTransaction, Account, AccountType, PersonalDollarUsage } from './types';
 import { getFinancialAdvice } from './services/gemini';
 import { dbService } from './services/api';
 
 // --- CONFIGURATION ---
 const APP_PASSWORD = "admin123"; // আপনার পাসওয়ার্ডটি এখানে পরিবর্তন করুন
 // ---------------------
-
-// --- Sub-components ---
 
 const SidebarItem: React.FC<{ 
   icon: React.ReactNode; 
@@ -64,7 +61,7 @@ const App: React.FC = () => {
   const [showLoginPass, setShowLoginPass] = useState(false);
 
   // App Navigation State
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'income' | 'expense' | 'vault' | 'ai' | 'dollar' | 'accounts' | 'personal_dollar' | 'orders'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'income' | 'expense' | 'vault' | 'ai' | 'dollar' | 'accounts' | 'personal_dollar'>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [dbStatus, setDbStatus] = useState<'connected' | 'offline'>('connected');
@@ -74,7 +71,6 @@ const App: React.FC = () => {
   const [vault, setVault] = useState<VaultItem[]>([]);
   const [dollarTransactions, setDollarTransactions] = useState<DollarTransaction[]>([]);
   const [personalDollarUsage, setPersonalDollarUsage] = useState<PersonalDollarUsage[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
@@ -103,7 +99,6 @@ const App: React.FC = () => {
         setVault(data.vault || []);
         setDollarTransactions(data.dollarTransactions || []);
         setPersonalDollarUsage(data.personalDollarUsage || []);
-        setOrders(data.orders || []);
         setAccounts(data.accounts || []);
         setDbStatus('connected');
       } catch (e) {
@@ -207,13 +202,13 @@ const App: React.FC = () => {
       date: new Date().toISOString().split('T')[0]
     };
     
-    // অটোমেটিক টাকা কাটা (Automatic Balance Deduction)
+    // অটোমেটিক টাকা কাটা
     if (accountName) {
       addTransaction(
         TransactionType.EXPENSE, 
         buyRate * quantity, 
         "ডলার ক্রয়", 
-        `পরিমাণ: $${quantity.toLocaleString(undefined, {minimumFractionDigits: 1})}`, 
+        `পরিমাণ: $${quantity.toLocaleString(undefined, {minimumFractionDigits: 1})} (রেট: ৳${buyRate})`, 
         accountName
       );
     }
@@ -229,11 +224,16 @@ const App: React.FC = () => {
     const targetTx = dollarTransactions.find(t => t.id === id);
     if (!targetTx) return;
 
-    const updated = dollarTransactions.map(t => t.id === id ? { ...t, sellRate, sellDate: new Date().toISOString().split('T')[0] } : t);
+    const updated = dollarTransactions.map(t => t.id === id ? { 
+      ...t, 
+      sellRate, 
+      sellDate: new Date().toISOString().split('T')[0] 
+    } : t);
+    
     setDollarTransactions(updated);
     syncModule('dollarTransactions', updated);
 
-    // অটোমেটিক টাকা যোগ হওয়া (Automatic Balance Addition on Sell)
+    // অটোমেটিক টাকা যোগ হওয়া
     if (targetTx.accountName) {
        addTransaction(
          TransactionType.INCOME, 
@@ -307,7 +307,6 @@ const App: React.FC = () => {
     setShowPasswordMap(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // --- Login Screen Render ---
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
@@ -361,20 +360,13 @@ const App: React.FC = () => {
               প্রবেশ করুন
             </button>
           </form>
-
-          <p className="text-center text-[10px] text-slate-300 uppercase font-bold mt-8 tracking-tighter">
-            Personal & Secure Financial Management System
-          </p>
+          <p className="text-center text-[10px] text-slate-300 uppercase font-bold mt-8 tracking-tighter">Secure Financial System</p>
         </div>
-        <style>{`
-          @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-          .animate-fadeIn { animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        `}</style>
+        <style>{`.animate-fadeIn { animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; } @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }`}</style>
       </div>
     );
   }
 
-  // --- Main App Render ---
   return (
     <div className="min-h-screen flex bg-slate-50 text-slate-900 overflow-x-hidden">
       {isSyncing && (
@@ -392,7 +384,7 @@ const App: React.FC = () => {
       <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6">
           <h1 className="text-2xl font-bold text-blue-700 flex items-center gap-2"><Wallet className="w-8 h-8" />আমার হিসাব</h1>
-          <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-semibold">Financial Cloud Sync</p>
+          <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-semibold">Cloud Management</p>
         </div>
         <nav className="mt-4 px-4 space-y-2 overflow-y-auto max-h-[calc(100vh-320px)]">
           <SidebarItem icon={<LayoutDashboard size={20} />} label="ড্যাশবোর্ড" active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} />
@@ -400,22 +392,18 @@ const App: React.FC = () => {
           <SidebarItem icon={<TrendingUp size={20} />} label="আয়ের তালিকা" active={activeTab === 'income'} onClick={() => { setActiveTab('income'); setSidebarOpen(false); }} />
           <SidebarItem icon={<TrendingDown size={20} />} label="ব্যয়ের তালিকা" active={activeTab === 'expense'} onClick={() => { setActiveTab('expense'); setSidebarOpen(false); }} />
           <SidebarItem icon={<RefreshCw size={20} />} label="ডলার বাই-সেল" active={activeTab === 'dollar'} onClick={() => { setActiveTab('dollar'); setSidebarOpen(false); }} />
-          <SidebarItem icon={<ShoppingBag size={20} />} label="পার্সোনাল ডলার ইউজ" active={activeTab === 'personal_dollar'} onClick={() => { setActiveTab('personal_dollar'); setSidebarOpen(false); }} />
+          <SidebarItem icon={<ShoppingBag size={20} />} label="পার্সোনাল ইউজ" active={activeTab === 'personal_dollar'} onClick={() => { setActiveTab('personal_dollar'); setSidebarOpen(false); }} />
           <SidebarItem icon={<Lock size={20} />} label="পাসওয়ার্ড ভল্ট" active={activeTab === 'vault'} onClick={() => { setActiveTab('vault'); setSidebarOpen(false); }} />
           <div className="pt-4 mt-4 border-t border-slate-100">
             <SidebarItem icon={<Bot size={20} />} label="এআই অ্যাসিস্ট্যান্ট" active={activeTab === 'ai'} onClick={() => { setActiveTab('ai'); setSidebarOpen(false); }} />
           </div>
         </nav>
         <div className="absolute bottom-8 left-0 w-full px-6 space-y-3">
-          <button 
-            onClick={handleLogout}
-            className="w-full flex items-center gap-2 text-rose-500 text-xs font-bold uppercase p-2 hover:bg-rose-50 rounded-lg transition-colors mb-2"
-          >
-            <XCircle size={14} /> সাইন আউট
-          </button>
+          <button onClick={handleLogout} className="w-full flex items-center gap-2 text-rose-500 text-xs font-bold uppercase p-2 hover:bg-rose-50 rounded-lg transition-colors mb-2"><XCircle size={14} /> সাইন আউট</button>
           <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 border rounded-lg">
+             {/* Fix: Using the imported Cloud icon from lucide-react */}
              <Cloud size={14} className={dbStatus === 'connected' ? 'text-emerald-500' : 'text-rose-500'} />
-             <span className="text-[10px] font-bold uppercase text-slate-500">{dbStatus === 'connected' ? 'MySQL Online' : 'Offline'}</span>
+             <span className="text-[10px] font-bold uppercase text-slate-500">{dbStatus === 'connected' ? 'Cloud Sync' : 'Offline'}</span>
           </div>
           <div className="bg-blue-600 p-4 rounded-xl text-white shadow-lg shadow-blue-200">
             <p className="text-[10px] font-bold uppercase opacity-80 mb-1">মোট ব্যালেন্স</p>
@@ -425,7 +413,6 @@ const App: React.FC = () => {
       </aside>
 
       <main className="flex-1 lg:ml-64 p-4 lg:p-8 mt-12 lg:mt-0">
-        
         {activeTab === 'dashboard' && (
           <div className="space-y-6 animate-fadeIn">
             <header><h2 className="text-2xl font-bold text-slate-800">ওভারভিউ</h2></header>
@@ -435,7 +422,6 @@ const App: React.FC = () => {
               <StatCard label="ওয়ালেট ব্যালেন্স" value={totalAccountBalance} icon={<Wallet />} color="bg-blue-500" />
               <StatCard label="ডলার প্রফিট" value={totalDollarProfit} icon={<TrendingUp />} color="bg-indigo-500" />
             </div>
-            
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card title="সাম্প্রতিক লেনদেন">
                 <div className="space-y-3">
@@ -450,12 +436,9 @@ const App: React.FC = () => {
                           <p className="text-[10px] text-slate-400 uppercase font-bold">{t.accountName}</p>
                         </div>
                       </div>
-                      <p className={`font-black ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {t.type === TransactionType.INCOME ? '+' : '-'}৳{t.amount.toLocaleString(undefined, { minimumFractionDigits: 1 })}
-                      </p>
+                      <p className={`font-black ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-rose-600'}`}>৳{t.amount.toLocaleString(undefined, { minimumFractionDigits: 1 })}</p>
                     </div>
                   ))}
-                  {transactions.length === 0 && <p className="text-center py-8 text-slate-400 italic">কোনো লেনদেন নেই</p>}
                 </div>
               </Card>
               <Card title="অ্যাকাউন্ট ব্যালেন্স">
@@ -472,7 +455,6 @@ const App: React.FC = () => {
                       <p className="font-black text-slate-800">৳{getAccountBalance(acc.name).toLocaleString(undefined, { minimumFractionDigits: 1 })}</p>
                     </div>
                   ))}
-                  {accounts.length === 0 && <p className="text-center py-8 text-slate-400 italic">কোনো অ্যাকাউন্ট নেই</p>}
                 </div>
               </Card>
             </div>
@@ -490,27 +472,20 @@ const App: React.FC = () => {
                 const category = form.elements.namedItem('category') as HTMLInputElement;
                 const account = form.elements.namedItem('account') as HTMLSelectElement;
                 const note = form.elements.namedItem('note') as HTMLInputElement;
-
-                addTransaction(
-                  activeTab === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE,
-                  parseFloat(amount.value),
-                  category.value,
-                  note.value || "",
-                  account.value
-                );
+                addTransaction(activeTab === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE, parseFloat(amount.value), category.value, note.value || "", account.value);
                 form.reset();
               }}>
-                <input name="amount" type="number" step="any" placeholder="টাকার পরিমাণ (উদা: 127.6)" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
+                <input name="amount" type="number" step="any" placeholder="টাকার পরিমাণ" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
                 <input name="category" placeholder="ক্যাটাগরি" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
                 <select name="account" required className="px-4 py-2 border rounded-lg text-sm bg-white outline-none focus:border-blue-500">
                   <option value="">অ্যাকাউন্ট সিলেক্ট</option>
                   {accounts.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
                 </select>
-                <input name="note" placeholder="নোট (অপশনাল)" className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
-                <button type="submit" className={`px-4 py-2 text-white font-bold rounded-lg text-sm transition-opacity hover:opacity-90 ${activeTab === 'income' ? 'bg-emerald-600' : 'bg-rose-600'}`}>সেভ করুন</button>
+                <input name="note" placeholder="নোট" className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
+                <button type="submit" className={`px-4 py-2 text-white font-bold rounded-lg text-sm ${activeTab === 'income' ? 'bg-emerald-600' : 'bg-rose-600'}`}>সেভ</button>
               </form>
             </Card>
-            <Card title="লেনদেনের হিস্টোরি">
+            <Card title="হিস্টোরি">
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead className="text-[10px] uppercase text-slate-400 border-b">
@@ -537,29 +512,17 @@ const App: React.FC = () => {
           <div className="space-y-6 animate-fadeIn">
              <header><h2 className="text-2xl font-bold text-slate-800">ডলার ট্রেডিং</h2></header>
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 shadow-sm">
-                <div className="flex items-center gap-2 mb-4 text-blue-700">
-                  <Calculator size={20} />
-                  <h3 className="font-bold">কুইক ক্যালকুলেটর</h3>
-                </div>
+                <h3 className="font-bold flex items-center gap-2 mb-4 text-blue-700"><Calculator size={20}/>ক্যালকুলেটর</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">পরিমাণ ($)</label>
-                    <input value={calcAmount} onChange={(e) => setCalcAmount(e.target.value)} type="number" step="any" placeholder="0.00" className="w-full px-4 py-2 border rounded-lg text-sm bg-white outline-none focus:border-blue-400" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">রেট (৳)</label>
-                    <input value={calcRate} onChange={(e) => setCalcRate(e.target.value)} type="number" step="any" placeholder="0.00" className="w-full px-4 py-2 border rounded-lg text-sm bg-white outline-none focus:border-blue-400" />
-                  </div>
-                  <div className="flex flex-col justify-end">
-                    <div className="bg-white px-4 py-2 border rounded-lg h-[40px] flex items-center justify-between shadow-inner">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">মোট টাকা:</span>
-                      <span className="font-black text-blue-700">৳{(parseFloat(calcAmount || '0') * parseFloat(calcRate || '0')).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })}</span>
-                    </div>
+                  <input value={calcAmount} onChange={(e) => setCalcAmount(e.target.value)} type="number" step="any" placeholder="পরিমাণ ($)" className="px-4 py-2 border rounded-lg text-sm bg-white" />
+                  <input value={calcRate} onChange={(e) => setCalcRate(e.target.value)} type="number" step="any" placeholder="রেট (৳)" className="px-4 py-2 border rounded-lg text-sm bg-white" />
+                  <div className="bg-white px-4 py-2 border rounded-lg flex items-center justify-between shadow-inner">
+                    <span className="text-[10px] font-bold text-slate-400">মোট:</span>
+                    <span className="font-black text-blue-700">৳{(parseFloat(calcAmount || '0') * parseFloat(calcRate || '0')).toLocaleString(undefined, { minimumFractionDigits: 1 })}</span>
                   </div>
                 </div>
               </div>
-
-              <Card title="নতুন লেনদেন (অটোমেটিক ব্যালেন্স ডিডাকশন)">
+              <Card title="নতুন লেনদেন">
                 <form className="grid grid-cols-1 md:grid-cols-4 gap-4" onSubmit={(e) => {
                   e.preventDefault();
                   const form = e.target as HTMLFormElement;
@@ -569,63 +532,42 @@ const App: React.FC = () => {
                   addDollarTx(parseFloat(buy.value), undefined, parseFloat(qty.value), "", acc.value);
                   form.reset();
                 }}>
-                  <input name="buy" type="number" step="any" placeholder="৳ বাই রেট" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
-                  <input name="qty" type="number" step="any" placeholder="$ পরিমাণ" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
-                  <select name="acc" required className="px-4 py-2 border rounded-lg text-sm bg-white outline-none focus:border-blue-500">
+                  <input name="buy" type="number" step="any" placeholder="৳ বাই রেট" required className="px-4 py-2 border rounded-lg text-sm" />
+                  <input name="qty" type="number" step="any" placeholder="$ পরিমাণ" required className="px-4 py-2 border rounded-lg text-sm" />
+                  <select name="acc" required className="px-4 py-2 border rounded-lg text-sm bg-white">
                      <option value="">অ্যাকাউন্ট সিলেক্ট</option>
                      {accounts.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
                   </select>
-                  <button type="submit" className="bg-indigo-600 text-white rounded-lg font-bold text-sm hover:bg-indigo-700 transition-colors">বাই করুন</button>
+                  <button type="submit" className="bg-indigo-600 text-white rounded-lg font-bold text-sm">বাই করুন</button>
                 </form>
               </Card>
-              
-              <Card title="ট্রেডিং টেবিল">
+              <Card title="ট্রেডিং লিস্ট">
                 <div className="overflow-x-auto">
                    <table className="w-full text-left">
                      <thead className="text-[10px] uppercase text-slate-400 border-b">
-                        <tr>
-                          <th className="pb-3">তারিখ</th>
-                          <th className="pb-3">পরিমাণ</th>
-                          <th className="pb-3 text-right">বাই রেট</th>
-                          <th className="pb-3 text-right">সেল রেট</th>
-                          <th className="pb-3 text-right">প্রফিট/ডলার</th>
-                          <th className="pb-3 text-right">মোট লাভ</th>
-                          <th className="pb-3 text-right">মোট কামাই (৳)</th>
-                          <th className="pb-3 text-right">অ্যাকশন</th>
-                        </tr>
+                        <tr><th className="pb-3">তারিখ</th><th className="pb-3">পরিমাণ</th><th className="pb-3 text-right">বাই</th><th className="pb-3 text-right">সেল</th><th className="pb-3 text-right">মোট লাভ</th><th className="pb-3 text-right">অ্যাকশন</th></tr>
                      </thead>
                      <tbody>
                        {dollarTransactions.map(t => {
-                         const profitPerDollar = t.sellRate ? (t.sellRate - t.buyRate) : 0;
-                         const totalProfit = profitPerDollar * t.quantity;
-                         const totalReceived = t.sellRate ? (t.sellRate * t.quantity) : 0;
-                         
+                         const totalProfit = t.sellRate ? (t.sellRate - t.buyRate) * t.quantity : 0;
                          return (
                            <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
                               <td className="py-4 text-xs text-slate-500">{t.date}</td>
-                              <td className="py-4 font-bold text-slate-800">${t.quantity.toLocaleString(undefined, { minimumFractionDigits: 1 })}</td>
-                              <td className="py-4 text-right text-slate-600">৳{t.buyRate.toLocaleString(undefined, { minimumFractionDigits: 1 })}</td>
+                              <td className="py-4 font-bold">${t.quantity.toLocaleString(undefined, { minimumFractionDigits: 1 })}</td>
+                              <td className="py-4 text-right">৳{t.buyRate.toLocaleString(undefined, { minimumFractionDigits: 1 })}</td>
                               <td className="py-4 text-right">
-                                 {t.sellRate ? <span className="text-emerald-600 font-bold">৳{t.sellRate.toLocaleString(undefined, { minimumFractionDigits: 1 })}</span> : 
+                                 {t.sellRate !== undefined ? <span className="text-emerald-600 font-bold">৳{t.sellRate.toLocaleString(undefined, { minimumFractionDigits: 1 })}</span> : 
                                    editingSellId === t.id ? (
                                      <div className="flex gap-1 justify-end">
-                                        <input autoFocus type="number" step="any" onChange={(e) => setTempSellRate(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && updateDollarSellRate(t.id, parseFloat(tempSellRate))} className="w-16 border rounded text-xs px-2 py-1 outline-none focus:border-emerald-500" placeholder="রেট" />
-                                        <button onClick={() => updateDollarSellRate(t.id, parseFloat(tempSellRate))} className="text-emerald-500"><CheckCircle size={16}/></button>
+                                        <input autoFocus type="number" step="any" onChange={(e) => setTempSellRate(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && updateDollarSellRate(t.id, parseFloat(tempSellRate))} className="w-16 border rounded text-xs px-1 outline-none" placeholder="রেট" />
+                                        <button onClick={() => updateDollarSellRate(t.id, parseFloat(tempSellRate))} className="text-emerald-500"><CheckCircle size={14}/></button>
                                      </div>
                                    ) : (
-                                     <button onClick={() => setEditingSellId(t.id)} className="text-[10px] font-bold bg-blue-50 text-blue-600 px-3 py-1 rounded border border-blue-100 hover:bg-blue-600 hover:text-white transition-all shadow-sm">Sell Now</button>
+                                     <button onClick={() => setEditingSellId(t.id)} className="text-[10px] font-bold bg-blue-600 text-white px-2 py-1 rounded">Sell Now</button>
                                    )
                                  }
                               </td>
-                              <td className={`py-4 text-right font-medium ${profitPerDollar > 0 ? 'text-emerald-600' : profitPerDollar < 0 ? 'text-rose-600' : 'text-slate-400'}`}>
-                                {t.sellRate ? `৳${profitPerDollar.toLocaleString(undefined, { minimumFractionDigits: 1 })}` : '-'}
-                              </td>
-                              <td className={`py-4 text-right font-black ${totalProfit > 0 ? 'text-emerald-600' : totalProfit < 0 ? 'text-rose-600' : 'text-slate-400'}`}>
-                                {t.sellRate ? `৳${totalProfit.toLocaleString(undefined, { minimumFractionDigits: 1 })}` : '-'}
-                              </td>
-                              <td className="py-4 text-right font-bold text-slate-800">
-                                {t.sellRate ? `৳${totalReceived.toLocaleString(undefined, { minimumFractionDigits: 1 })}` : '-'}
-                              </td>
+                              <td className={`py-4 text-right font-black ${totalProfit > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>{t.sellRate !== undefined ? `৳${totalProfit.toLocaleString(undefined, { minimumFractionDigits: 1 })}` : '-'}</td>
                               <td className="py-4 text-right"><button onClick={() => deleteDollarTx(t.id)} className="text-slate-200 hover:text-rose-500"><Trash2 size={16}/></button></td>
                            </tr>
                          );
@@ -637,10 +579,11 @@ const App: React.FC = () => {
           </div>
         )}
 
+        {/* --- Shared Tabs Style --- */}
         {activeTab === 'personal_dollar' && (
           <div className="space-y-6 animate-fadeIn">
             <header><h2 className="text-2xl font-bold text-slate-800">পার্সোনাল ডলার ইউজ</h2></header>
-            <Card title="ডলার ব্যবহারের তথ্য">
+            <Card title="ব্যবহারের তথ্য">
               <form className="grid grid-cols-1 md:grid-cols-4 gap-4" onSubmit={(e) => {
                 e.preventDefault();
                 const form = e.target as HTMLFormElement;
@@ -653,21 +596,21 @@ const App: React.FC = () => {
                 <input name="amount" type="number" step="any" placeholder="পরিমাণ ($)" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
                 <input name="rate" type="number" step="any" placeholder="রেট (৳)" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
                 <input name="purpose" placeholder="উদ্দেশ্য" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
-                <button type="submit" className="bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700 transition-colors">সেভ করুন</button>
+                <button type="submit" className="bg-blue-600 text-white rounded-lg font-bold text-sm">সেভ করুন</button>
               </form>
             </Card>
             <Card title="ইউসেজ লিস্ট">
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead className="text-[10px] uppercase text-slate-400 border-b">
-                    <tr><th className="pb-3">তারিখ</th><th className="pb-3">উদ্দেশ্য</th><th className="pb-3 text-right">ডলার ($)</th><th className="pb-3 text-right">রেট (৳)</th><th className="pb-3 text-right">মোট (৳)</th><th className="pb-3 text-right">অ্যাকশন</th></tr>
+                    <tr><th className="pb-3">তারিখ</th><th className="pb-3">উদ্দেশ্য</th><th className="pb-3 text-right">ডলার</th><th className="pb-3 text-right">রেট</th><th className="pb-3 text-right">মোট (৳)</th><th className="pb-3 text-right">অ্যাকশন</th></tr>
                   </thead>
                   <tbody>
                     {personalDollarUsage.map(p => (
                       <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
                         <td className="py-4 text-xs text-slate-500">{p.date}</td>
                         <td className="py-4 font-bold text-slate-700">{p.purpose}</td>
-                        <td className="py-4 text-right font-medium">${p.amount.toLocaleString(undefined, { minimumFractionDigits: 1 })}</td>
+                        <td className="py-4 text-right">${p.amount.toLocaleString(undefined, { minimumFractionDigits: 1 })}</td>
                         <td className="py-4 text-right text-slate-600">৳{p.rate.toLocaleString(undefined, { minimumFractionDigits: 1 })}</td>
                         <td className="py-4 text-right font-black">৳{(p.amount * p.rate).toLocaleString(undefined, { minimumFractionDigits: 1 })}</td>
                         <td className="py-4 text-right"><button onClick={() => deletePersonalDollar(p.id)} className="text-slate-200 hover:text-rose-500"><Trash2 size={16}/></button></td>
@@ -693,20 +636,20 @@ const App: React.FC = () => {
                 addAccount({ name: accName.value, type: accType.value as AccountType, providerName: provider.value });
                 form.reset();
               }}>
-                <input name="accName" placeholder="নাম" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
-                <select name="accType" className="px-4 py-2 border rounded-lg bg-white text-sm outline-none focus:border-blue-500">
+                <input name="accName" placeholder="নাম" required className="px-4 py-2 border rounded-lg text-sm" />
+                <select name="accType" className="px-4 py-2 border rounded-lg bg-white text-sm">
                     <option value="Mobile Wallet">মোবাইল ওয়ালেট</option>
                     <option value="Bank">ব্যাংক</option>
                     <option value="Cash">ক্যাশ</option>
                 </select>
-                <input name="provider" placeholder="প্রোভাইডার (বিকাশ, ডাচ-বাংলা ইত্যাদি)" className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
-                <button type="submit" className="bg-blue-600 text-white rounded-lg font-bold text-sm col-span-full py-2 hover:bg-blue-700 transition-colors shadow-md">অ্যাকাউন্ট সেভ করুন</button>
+                <input name="provider" placeholder="প্রোভাইডার" className="px-4 py-2 border rounded-lg text-sm" />
+                <button type="submit" className="bg-blue-600 text-white rounded-lg font-bold text-sm col-span-full py-2 shadow-md">অ্যাকাউন্ট সেভ করুন</button>
               </form>
             </Card>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {accounts.map(acc => (
-                <div key={acc.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative group hover:shadow-md transition-shadow">
-                  <button onClick={() => deleteAccount(acc.id)} className="absolute top-4 right-4 text-slate-200 hover:text-rose-600 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={18}/></button>
+                <div key={acc.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative group">
+                  <button onClick={() => deleteAccount(acc.id)} className="absolute top-4 right-4 text-slate-200 hover:text-rose-600 opacity-0 group-hover:opacity-100"><Trash2 size={18}/></button>
                   <div className="flex items-center gap-3 mb-4">
                     <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">{getAccountIcon(acc.type)}</div>
                     <div>
@@ -714,7 +657,7 @@ const App: React.FC = () => {
                       <p className="text-[10px] text-slate-400 font-bold uppercase">{acc.providerName}</p>
                     </div>
                   </div>
-                  <div className="bg-blue-600 p-4 rounded-xl text-white shadow-md shadow-blue-100">
+                  <div className="bg-blue-600 p-4 rounded-xl text-white shadow-md">
                     <p className="text-[10px] font-bold opacity-70 uppercase mb-1">কারেন্ট ব্যালেন্স</p>
                     <p className="text-2xl font-black">৳{getAccountBalance(acc.name).toLocaleString(undefined, { minimumFractionDigits: 1 })}</p>
                   </div>
@@ -737,10 +680,10 @@ const App: React.FC = () => {
                 addVaultItem(site.value, user.value, pass.value, "");
                 form.reset();
               }}>
-                <input name="site" placeholder="সাইটের নাম" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
-                <input name="user" placeholder="ইউজারনেম/ইমেইল" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
-                <input name="pass" type="password" placeholder="পাসওয়ার্ড" required className="px-4 py-2 border rounded-lg text-sm outline-none focus:border-blue-500" />
-                <button type="submit" className="bg-slate-800 text-white rounded-lg font-bold text-sm px-4 py-2 hover:bg-slate-900 transition-colors">ভল্টে রাখুন</button>
+                <input name="site" placeholder="সাইটের নাম" required className="px-4 py-2 border rounded-lg text-sm outline-none" />
+                <input name="user" placeholder="ইউজারনেম" required className="px-4 py-2 border rounded-lg text-sm outline-none" />
+                <input name="pass" type="password" placeholder="পাসওয়ার্ড" required className="px-4 py-2 border rounded-lg text-sm outline-none" />
+                <button type="submit" className="bg-slate-800 text-white rounded-lg font-bold text-sm px-4">ভল্টে রাখুন</button>
               </form>
             </Card>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -781,53 +724,33 @@ const App: React.FC = () => {
                   <div className="h-full flex flex-col items-center justify-center text-center opacity-40">
                     <Bot size={64} className="mb-4 text-blue-600" />
                     <p className="font-bold text-lg">আমি আপনার পার্সোনাল হিসাবরক্ষক।</p>
-                    <p className="text-sm max-w-xs mx-auto mt-2">আপনার খরচ বা সেভিংস নিয়ে যেকোনো প্রশ্ন করতে পারেন।</p>
+                    <p className="text-sm mt-2">আপনার আয়-ব্যয় নিয়ে যেকোনো প্রশ্ন করতে পারেন।</p>
                   </div>
                 )}
                 {aiResponse && (
-                  <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 shadow-sm">
-                    <div className="flex items-center gap-2 mb-3 text-blue-600">
-                      <Bot size={20}/>
-                      <span className="font-bold text-sm">AI পরামর্শ:</span>
-                    </div>
-                    <div className="prose prose-blue text-slate-700 leading-relaxed whitespace-pre-wrap font-medium">
-                      {aiResponse}
-                    </div>
+                  <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 shadow-sm animate-fadeIn">
+                    <div className="flex items-center gap-2 mb-3 text-blue-600"><Bot size={20}/><span className="font-bold text-sm">AI পরামর্শ:</span></div>
+                    <div className="prose prose-blue text-slate-700 leading-relaxed whitespace-pre-wrap font-medium">{aiResponse}</div>
                   </div>
                 )}
               </div>
-              <div className="mt-4">
-                <div className="relative">
-                  <input 
-                    value={aiQuery} 
-                    onChange={(e) => setAiQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAiAsk()}
-                    placeholder="আপনার প্রশ্ন এখানে লিখুন..." 
-                    className="w-full pl-6 pr-14 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all shadow-inner"
-                  />
+              <div className="mt-4 relative">
+                  <input value={aiQuery} onChange={(e) => setAiQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAiAsk()} placeholder="আপনার প্রশ্ন এখানে লিখুন..." className="w-full pl-6 pr-14 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-inner" />
                   <button onClick={handleAiAsk} disabled={aiLoading} className="absolute right-3 top-2 bottom-2 bg-blue-600 text-white px-4 rounded-xl shadow-md transition-transform active:scale-95 disabled:opacity-50">
                     {aiLoading ? <RefreshCw className="animate-spin" size={20}/> : <Send size={20}/>}
                   </button>
-                </div>
               </div>
             </div>
           </div>
         )}
 
         <style>{`
-          @keyframes syncProgress {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-          }
-          .animate-syncProgress {
-            animation: syncProgress 1.5s infinite linear;
-          }
-          @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+          .animate-syncProgress { animation: syncProgress 1.5s infinite linear; }
+          @keyframes syncProgress { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
           .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
-          
+          @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
           * { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
           *::-webkit-scrollbar { width: 6px; }
-          *::-webkit-scrollbar-track { background: transparent; }
           *::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
         `}</style>
       </main>
