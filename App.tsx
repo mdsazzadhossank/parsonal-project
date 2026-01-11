@@ -1,12 +1,11 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, 
   Wallet, 
   TrendingDown, 
   Lock, 
   Bot, 
-  Plus, 
   Trash2, 
   Eye, 
   EyeOff,
@@ -15,35 +14,21 @@ import {
   RefreshCw,
   TrendingUp,
   DollarSign,
-  Calculator,
-  ArrowRightLeft,
-  CreditCard,
-  Banknote,
   Phone,
   Building2,
   Coins,
   CheckCircle2,
   Clock,
-  UserCheck,
   ShoppingBag,
   Package,
-  AlertCircle,
   CheckCircle,
-  XCircle,
-  RotateCcw
+  CreditCard,
+  Banknote,
+  Loader2
 } from 'lucide-react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  Cell
-} from 'recharts';
-import { Transaction, TransactionType, VaultItem, AppState, DollarTransaction, Account, AccountType, PersonalDollarUsage, Order, OrderStatus } from './types';
+import { Transaction, TransactionType, VaultItem, DollarTransaction, Account, AccountType, PersonalDollarUsage, Order, OrderStatus } from './types';
 import { getFinancialAdvice } from './services/gemini';
+import { api } from './services/api';
 
 // --- Sub-components ---
 
@@ -106,17 +91,15 @@ const StatusBadge: React.FC<{ status: OrderStatus }> = ({ status }) => {
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'income' | 'expense' | 'vault' | 'ai' | 'dollar' | 'accounts' | 'personal_dollar' | 'orders'>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Data States
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [vault, setVault] = useState<VaultItem[]>([]);
   const [dollarTransactions, setDollarTransactions] = useState<DollarTransaction[]>([]);
   const [personalDollarUsage, setPersonalDollarUsage] = useState<PersonalDollarUsage[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([
-    { id: '1', name: 'বিকাশ পার্সোনাল', type: 'Mobile Wallet', accountNumber: '017XXXXXXXX', providerName: 'bKash' },
-    { id: '2', name: 'নগদ পার্সোনাল', type: 'Mobile Wallet', accountNumber: '019XXXXXXXX', providerName: 'Nagad' },
-    { id: '3', name: 'আমার ব্যাংক', type: 'Bank', accountNumber: '123456789', providerName: 'Brac Bank' },
-    { id: '4', name: 'নগদ টাকা (ক্যাশ)', type: 'Cash', providerName: 'Cash' }
-  ]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
 
   // Calculator States
@@ -134,25 +117,36 @@ const App: React.FC = () => {
   const [aiResponse, setAiResponse] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
 
-  // Load data from LocalStorage
+  // Load data from MySQL API
   useEffect(() => {
-    const savedData = localStorage.getItem('amar_hisab_data');
-    if (savedData) {
-      const parsed = JSON.parse(savedData) as AppState;
-      setTransactions(parsed.transactions || []);
-      setVault(parsed.vault || []);
-      setDollarTransactions(parsed.dollarTransactions || []);
-      setPersonalDollarUsage(parsed.personalDollarUsage || []);
-      setOrders(parsed.orders || []);
-      if (parsed.accounts) setAccounts(parsed.accounts);
-    }
+    const loadData = async () => {
+      setIsLoading(true);
+      const data = await api.getAllData();
+      if (data) {
+        setTransactions(data.transactions);
+        setVault(data.vault);
+        setDollarTransactions(data.dollarTransactions);
+        setPersonalDollarUsage(data.personalDollarUsage || []);
+        setOrders(data.orders || []);
+        if (data.accounts && data.accounts.length > 0) {
+            setAccounts(data.accounts);
+        } else {
+            // Default accounts if DB is empty
+            const defaults: Account[] = [
+                { id: '1', name: 'বিকাশ পার্সোনাল', type: 'Mobile Wallet', accountNumber: '017XXXXXXXX', providerName: 'bKash' },
+                { id: '2', name: 'নগদ পার্সোনাল', type: 'Mobile Wallet', accountNumber: '019XXXXXXXX', providerName: 'Nagad' },
+                { id: '3', name: 'আমার ব্যাংক', type: 'Bank', accountNumber: '123456789', providerName: 'Brac Bank' },
+                { id: '4', name: 'নগদ টাকা (ক্যাশ)', type: 'Cash', providerName: 'Cash' }
+            ];
+            setAccounts(defaults);
+            // Sync defaults to DB (optional, but good for first run)
+            defaults.forEach(acc => api.post('add_account', acc));
+        }
+      }
+      setIsLoading(false);
+    };
+    loadData();
   }, []);
-
-  // Save data to LocalStorage
-  useEffect(() => {
-    const dataToSave: AppState = { transactions, vault, dollarTransactions, accounts, personalDollarUsage, orders };
-    localStorage.setItem('amar_hisab_data', JSON.stringify(dataToSave));
-  }, [transactions, vault, dollarTransactions, accounts, personalDollarUsage, orders]);
 
   const addTransaction = (type: TransactionType, amount: number, category: string, note: string, accountName: string) => {
     const newTx: Transaction = {
@@ -165,10 +159,12 @@ const App: React.FC = () => {
       date: new Date().toISOString().split('T')[0]
     };
     setTransactions(prev => [newTx, ...prev]);
+    api.post('add_transaction', newTx);
   };
 
   const deleteTransaction = (id: string) => {
     setTransactions(prev => prev.filter(t => t.id !== id));
+    api.post('delete_transaction', { id });
   };
 
   const addOrder = (orderNumber: string, customerName: string, amount: number, status: OrderStatus, note: string) => {
@@ -182,14 +178,17 @@ const App: React.FC = () => {
       date: new Date().toISOString().split('T')[0]
     };
     setOrders(prev => [newOrder, ...prev]);
+    api.post('add_order', newOrder);
   };
 
   const updateOrderStatus = (id: string, status: OrderStatus) => {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
+    api.post('update_order_status', { id, status });
   };
 
   const deleteOrder = (id: string) => {
     setOrders(prev => prev.filter(o => o.id !== id));
+    api.post('delete_order', { id });
   };
 
   const addVaultItem = (siteName: string, username: string, password: string, note: string) => {
@@ -201,10 +200,12 @@ const App: React.FC = () => {
       note
     };
     setVault(prev => [newItem, ...prev]);
+    api.post('add_vault', newItem);
   };
 
   const deleteVaultItem = (id: string) => {
     setVault(prev => prev.filter(v => v.id !== id));
+    api.post('delete_vault', { id });
   };
 
   const addDollarTx = (buyRate: number, sellRate: number | undefined, quantity: number, note: string, accountName?: string) => {
@@ -225,18 +226,22 @@ const App: React.FC = () => {
     }
 
     setDollarTransactions(prev => [newTx, ...prev]);
+    api.post('add_dollar_tx', newTx);
   };
 
   const updateDollarSellRate = (id: string, sellRate: number) => {
+    const sellDate = new Date().toISOString().split('T')[0];
     setDollarTransactions(prev => prev.map(t => 
-      t.id === id ? { ...t, sellRate, sellDate: new Date().toISOString().split('T')[0] } : t
+      t.id === id ? { ...t, sellRate, sellDate } : t
     ));
     setEditingSellId(null);
     setTempSellRate('');
+    api.post('update_dollar_sell', { id, sellRate, sellDate });
   };
 
   const deleteDollarTx = (id: string) => {
     setDollarTransactions(prev => prev.filter(t => t.id !== id));
+    api.post('delete_dollar_tx', { id });
   };
 
   const addPersonalDollarUsage = (amount: number, rate: number, purpose: string, note: string) => {
@@ -249,10 +254,12 @@ const App: React.FC = () => {
       date: new Date().toISOString().split('T')[0]
     };
     setPersonalDollarUsage(prev => [newItem, ...prev]);
+    api.post('add_personal_dollar', newItem);
   };
 
   const deletePersonalDollarUsage = (id: string) => {
     setPersonalDollarUsage(prev => prev.filter(u => u.id !== id));
+    api.post('delete_personal_dollar', { id });
   };
 
   const addAccount = (account: Omit<Account, 'id'>) => {
@@ -261,10 +268,12 @@ const App: React.FC = () => {
       id: Math.random().toString(36).substr(2, 9)
     };
     setAccounts(prev => [...prev, newAccount]);
+    api.post('add_account', newAccount);
   };
 
   const deleteAccount = (id: string) => {
     setAccounts(prev => prev.filter(a => a.id !== id));
+    api.post('delete_account', { id });
   };
 
   const togglePasswordVisibility = (id: string) => {
@@ -319,6 +328,15 @@ const App: React.FC = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-500">
+        <Loader2 className="w-10 h-10 animate-spin text-blue-600 mb-4" />
+        <p className="font-hind">ডাটাবেস থেকে তথ্য লোড হচ্ছে...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex bg-slate-50 text-slate-900">
       <div className="lg:hidden fixed top-4 left-4 z-50">
@@ -330,7 +348,7 @@ const App: React.FC = () => {
       <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6">
           <h1 className="text-2xl font-bold text-blue-700 flex items-center gap-2"><Wallet className="w-8 h-8" />আমার হিসাব</h1>
-          <p className="text-xs text-slate-400 mt-1 uppercase tracking-wider font-semibold">Personal Manager</p>
+          <p className="text-xs text-slate-400 mt-1 uppercase tracking-wider font-semibold">Database Edition</p>
         </div>
         <nav className="mt-4 px-4 space-y-2 overflow-y-auto max-h-[calc(100vh-250px)]">
           <SidebarItem icon={<LayoutDashboard size={20} />} label="ড্যাশবোর্ড" active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} />
