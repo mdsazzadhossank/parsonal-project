@@ -1,13 +1,12 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  LayoutDashboard, Wallet, TrendingDown, Lock, Bot, Plus, Trash2, Eye, EyeOff, Menu, X, 
+  LayoutDashboard, Wallet, TrendingDown, Lock, Plus, Trash2, Eye, EyeOff, Menu, X, 
   RefreshCw, TrendingUp, DollarSign, Calculator, ArrowRightLeft, CreditCard, Banknote, 
   Phone, Building2, Coins, CheckCircle2, Clock, UserCheck, ShoppingBag, Package, 
-  AlertCircle, CheckCircle, XCircle, RotateCcw, Cloud, Send, Search
+  AlertCircle, CheckCircle, XCircle, RotateCcw, Cloud, Search
 } from 'lucide-react';
 import { Transaction, TransactionType, VaultItem, AppState, DollarTransaction, Account, AccountType, PersonalDollarUsage, Order, OrderStatus } from './types';
-import { getFinancialAdvice } from './services/gemini';
 import { dbService } from './services/api';
 
 // --- Sub-components ---
@@ -68,7 +67,7 @@ const StatusBadge: React.FC<{ status: OrderStatus }> = ({ status }) => {
 };
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'income' | 'expense' | 'vault' | 'ai' | 'dollar' | 'accounts' | 'personal_dollar' | 'orders'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'income' | 'expense' | 'vault' | 'dollar' | 'accounts' | 'personal_dollar' | 'orders'>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [dbStatus, setDbStatus] = useState<'connected' | 'offline'>('connected');
@@ -82,11 +81,6 @@ const App: React.FC = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
-
-  // AI State
-  const [aiQuery, setAiQuery] = useState('');
-  const [aiResponse, setAiResponse] = useState('');
-  const [aiLoading, setAiLoading] = useState(false);
 
   // Edit states for Dollar Buy/Sell
   const [editingSellId, setEditingSellId] = useState<string | null>(null);
@@ -232,14 +226,6 @@ const App: React.FC = () => {
     syncModule('accounts', updated);
   };
 
-  const handleAiAsk = async () => {
-    if (!aiQuery.trim()) return;
-    setAiLoading(true);
-    const advice = await getFinancialAdvice(transactions, aiQuery);
-    setAiResponse(advice || "দুঃখিত, কোনো উত্তর পাওয়া যায়নি।");
-    setAiLoading(false);
-  };
-
   // Stats Calculations
   const totalIncome = transactions.filter(t => t.type === TransactionType.INCOME).reduce((s, t) => s + t.amount, 0);
   const totalExpense = transactions.filter(t => t.type === TransactionType.EXPENSE).reduce((s, t) => s + t.amount, 0);
@@ -295,9 +281,6 @@ const App: React.FC = () => {
           <SidebarItem icon={<RefreshCw size={20} />} label="ডলার বাই-সেল" active={activeTab === 'dollar'} onClick={() => { setActiveTab('dollar'); setSidebarOpen(false); }} />
           <SidebarItem icon={<ShoppingBag size={20} />} label="পার্সোনাল ডলার ইউজ" active={activeTab === 'personal_dollar'} onClick={() => { setActiveTab('personal_dollar'); setSidebarOpen(false); }} />
           <SidebarItem icon={<Lock size={20} />} label="পাসওয়ার্ড ভল্ট" active={activeTab === 'vault'} onClick={() => { setActiveTab('vault'); setSidebarOpen(false); }} />
-          <div className="pt-4 mt-4 border-t border-slate-100">
-            <SidebarItem icon={<Bot size={20} />} label="এআই অ্যাসিস্ট্যান্ট" active={activeTab === 'ai'} onClick={() => { setActiveTab('ai'); setSidebarOpen(false); }} />
-          </div>
         </nav>
         <div className="absolute bottom-8 left-0 w-full px-6 space-y-3">
           <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 border rounded-lg">
@@ -494,53 +477,6 @@ const App: React.FC = () => {
                 </table>
               </div>
             </Card>
-          </div>
-        )}
-
-        {/* AI Assistant View */}
-        {activeTab === 'ai' && (
-          <div className="space-y-6 animate-fadeIn h-full flex flex-col">
-            <header><h2 className="text-2xl font-bold text-slate-800">এআই অ্যাসিস্ট্যান্ট</h2></header>
-            <div className="flex-1 flex flex-col gap-4 bg-white border border-slate-100 rounded-2xl p-6 shadow-sm min-h-[500px]">
-              <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-                {!aiResponse && !aiLoading && (
-                  <div className="h-full flex flex-col items-center justify-center text-center opacity-40">
-                    <Bot size={64} className="mb-4 text-blue-600" />
-                    <p className="font-bold text-lg">আমি আপনার পার্সোনাল হিসাবরক্ষক।</p>
-                    <p className="text-sm">জিজ্ঞেস করুন: "আমার এই মাসে কত খরচ হয়েছে?" অথবা "আমি কিভাবে টাকা বাঁচাতে পারি?"</p>
-                  </div>
-                )}
-                {aiResponse && (
-                  <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
-                    <div className="flex items-center gap-2 mb-3 text-blue-600">
-                      <Bot size={20}/>
-                      <span className="font-bold text-sm">Gemini AI পরামর্শ:</span>
-                    </div>
-                    <div className="prose prose-blue text-slate-700 leading-relaxed whitespace-pre-wrap">
-                      {aiResponse}
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="mt-4">
-                <div className="relative">
-                  <input 
-                    value={aiQuery} 
-                    onChange={(e) => setAiQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAiAsk()}
-                    placeholder="আপনার প্রশ্ন এখানে লিখুন..." 
-                    className="w-full pl-6 pr-14 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all shadow-inner"
-                  />
-                  <button 
-                    onClick={handleAiAsk} 
-                    disabled={aiLoading}
-                    className="absolute right-3 top-2 bottom-2 bg-blue-600 text-white px-4 rounded-xl hover:bg-blue-700 disabled:bg-slate-300 transition-colors flex items-center justify-center"
-                  >
-                    {aiLoading ? <RefreshCw className="animate-spin" size={20}/> : <Send size={20}/>}
-                  </button>
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
