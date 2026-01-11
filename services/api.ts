@@ -1,40 +1,67 @@
 
-import { AppState, Transaction, Order, Account, VaultItem, DollarTransaction, PersonalDollarUsage } from "../types";
+import { AppState } from "../types";
 
-// Base API URL - Change this to your backend endpoint (e.g., PHP or Node.js bridge)
 const API_BASE_URL = "/api"; 
 
-/**
- * Note: Since this is a frontend, you will need a small PHP or Node.js script 
- * on your free panel to receive these requests and talk to MySQL.
- */
-
 export const dbService = {
-  // Fetch everything
+  // Fetch everything from MySQL
   async getState(): Promise<AppState> {
+    const defaultState: AppState = { 
+      transactions: [], 
+      vault: [], 
+      dollarTransactions: [], 
+      orders: [], 
+      accounts: [], 
+      personalDollarUsage: [] 
+    };
+
     try {
       const response = await fetch(`${API_BASE_URL}/get_state.php`);
-      if (!response.ok) throw new Error("Database offline");
-      return await response.json();
+      if (!response.ok) throw new Error("Backend connection failed");
+      
+      const data = await response.json();
+      
+      // Merge with default state to ensure no undefined values
+      const merged = { ...defaultState, ...data };
+      
+      // Update local storage cache
+      localStorage.setItem('amar_hisab_data', JSON.stringify(merged));
+      return merged;
     } catch (e) {
-      console.warn("API failed, falling back to local simulation", e);
+      console.warn("MySQL fetch failed, falling back to LocalStorage:", e);
       const saved = localStorage.getItem('amar_hisab_data');
-      return saved ? JSON.parse(saved) : { transactions: [], vault: [], dollarTransactions: [], orders: [], accounts: [], personalDollarUsage: [] };
+      return saved ? JSON.parse(saved) : defaultState;
     }
   },
 
-  // Save specific modules
+  // Save specific modules to MySQL
   async sync(module: keyof AppState, data: any) {
+    // 1. Update local storage first for instant feedback/persistence
+    const saved = localStorage.getItem('amar_hisab_data');
+    const currentState = saved ? JSON.parse(saved) : {};
+    currentState[module] = data;
+    localStorage.setItem('amar_hisab_data', JSON.stringify(currentState));
+
+    // 2. Try to sync with MySQL Backend
     try {
-      await fetch(`${API_BASE_URL}/sync.php`, {
+      const response = await fetch(`${API_BASE_URL}/sync.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ module, data })
       });
-      console.log(`Synced ${module} to MySQL`);
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Sync failed');
+      }
+      
+      console.log(`Cloud Sync Success: ${module}`);
+      return true;
     } catch (e) {
-      console.error(`Sync failed for ${module}`, e);
-      // Fail-safe: update localStorage
+      console.error(`Cloud Sync Failed for ${module}:`, e);
+      // Even if it fails, data is safe in localStorage until next refresh
+      return false;
     }
   }
 };
