@@ -2,9 +2,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { Transaction, TransactionType } from "../types";
 
-// Always use process.env.API_KEY directly for initialization
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 export const getFinancialAdvice = async (transactions: Transaction[], userMessage: string) => {
   const income = transactions
     .filter(t => t.type === TransactionType.INCOME)
@@ -22,6 +19,10 @@ export const getFinancialAdvice = async (transactions: Transaction[], userMessag
   `;
 
   try {
+    // Initialize the AI client inside the function. 
+    // This ensures it doesn't crash the whole app if the API key is missing at load time.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `
@@ -31,7 +32,8 @@ export const getFinancialAdvice = async (transactions: Transaction[], userMessag
         Please respond in Bengali. Provide helpful, actionable financial advice, or answer the user's question about their spending based on the context provided.
       `,
     });
-    // Accessing .text property directly as per guidelines
+    
+    // Using .text property directly as per guidelines
     return response.text;
   } catch (error) {
     console.error("Gemini API Error:", error);
