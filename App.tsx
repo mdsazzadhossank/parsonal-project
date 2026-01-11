@@ -50,23 +50,6 @@ const StatCard: React.FC<{ label: string; value: number; icon: React.ReactNode; 
   </div>
 );
 
-const StatusBadge: React.FC<{ status: OrderStatus }> = ({ status }) => {
-  const styles: Record<OrderStatus, string> = {
-    [OrderStatus.PENDING]: 'bg-slate-100 text-slate-600 border-slate-200',
-    [OrderStatus.PROCESSING]: 'bg-blue-100 text-blue-700 border-blue-200',
-    [OrderStatus.ON_HOLD]: 'bg-orange-100 text-orange-700 border-orange-200',
-    [OrderStatus.COMPLETED]: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    [OrderStatus.CANCELLED]: 'bg-rose-100 text-rose-700 border-rose-200',
-    [OrderStatus.REFUNDED]: 'bg-slate-200 text-slate-700 border-slate-300',
-    [OrderStatus.FAILED]: 'bg-slate-900 text-white border-slate-900',
-  };
-  return (
-    <span className={`px-2 py-1 rounded-md text-[11px] font-bold uppercase border ${styles[status]}`}>
-      {status}
-    </span>
-  );
-};
-
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'income' | 'expense' | 'vault' | 'ai' | 'dollar' | 'accounts' | 'personal_dollar' | 'orders'>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -82,6 +65,10 @@ const App: React.FC = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
+
+  // Calculator State
+  const [calcAmount, setCalcAmount] = useState<string>('');
+  const [calcRate, setCalcRate] = useState<string>('');
 
   // AI State
   const [aiQuery, setAiQuery] = useState('');
@@ -181,35 +168,6 @@ const App: React.FC = () => {
     });
   };
 
-  const addOrder = (orderNumber: string, customerName: string, amount: number, status: OrderStatus, note: string) => {
-    const newOrder: Order = {
-      id: Math.random().toString(36).substr(2, 9),
-      orderNumber, customerName, amount, status, note,
-      date: new Date().toISOString().split('T')[0]
-    };
-    setOrders(prev => {
-      const updated = [newOrder, ...prev];
-      syncModule('orders', updated);
-      return updated;
-    });
-  };
-
-  const updateOrderStatus = (id: string, status: OrderStatus) => {
-    setOrders(prev => {
-      const updated = prev.map(o => o.id === id ? { ...o, status } : o);
-      syncModule('orders', updated);
-      return updated;
-    });
-  };
-
-  const deleteOrder = (id: string) => {
-    setOrders(prev => {
-      const updated = prev.filter(o => o.id !== id);
-      syncModule('orders', updated);
-      return updated;
-    });
-  };
-
   const addDollarTx = (buyRate: number, sellRate: number | undefined, quantity: number, note: string, accountName?: string) => {
     const newTx: DollarTransaction = {
       id: Math.random().toString(36).substr(2, 9),
@@ -234,17 +192,15 @@ const App: React.FC = () => {
     setDollarTransactions(updated);
     syncModule('dollarTransactions', updated);
 
-    // অটোমেটিক ইনকাম ট্রানজেকশন: যা আপনার ব্যাংক/বিকাশ ব্যালেন্স বাড়াবে
     if (targetTx.accountName) {
        addTransaction(
          TransactionType.INCOME, 
          sellRate * targetTx.quantity, 
          "ডলার বিক্রয়", 
-         `পরিমাণ: $${targetTx.quantity} (প্রফিট সহ মোট টাকা)`, 
+         `পরিমাণ: $${targetTx.quantity} (বিক্রয় লব্ধ টাকা)`, 
          targetTx.accountName
        );
     }
-
     setEditingSellId(null);
   };
 
@@ -287,7 +243,6 @@ const App: React.FC = () => {
   const balance = totalIncome - totalExpense;
   const soldTxs = dollarTransactions.filter(t => t.sellRate !== undefined);
   const totalDollarProfit = soldTxs.reduce((acc, curr) => acc + (curr.sellRate! - curr.buyRate) * curr.quantity, 0);
-  const totalOrderSales = orders.filter(o => o.status === OrderStatus.COMPLETED).reduce((s, o) => s + o.amount, 0);
 
   const getAccountBalance = (accountName: string) => {
     const inc = transactions.filter(t => t.type === TransactionType.INCOME && t.accountName === accountName).reduce((s, t) => s + t.amount, 0);
@@ -329,7 +284,6 @@ const App: React.FC = () => {
         </div>
         <nav className="mt-4 px-4 space-y-2 overflow-y-auto max-h-[calc(100vh-280px)]">
           <SidebarItem icon={<LayoutDashboard size={20} />} label="ড্যাশবোর্ড" active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} />
-          <SidebarItem icon={<Package size={20} />} label="অর্ডার ম্যানেজমেন্ট" active={activeTab === 'orders'} onClick={() => { setActiveTab('orders'); setSidebarOpen(false); }} />
           <SidebarItem icon={<CreditCard size={20} />} label="অ্যাকাউন্টস" active={activeTab === 'accounts'} onClick={() => { setActiveTab('accounts'); setSidebarOpen(false); }} />
           <SidebarItem icon={<TrendingUp size={20} />} label="আয়ের তালিকা" active={activeTab === 'income'} onClick={() => { setActiveTab('income'); setSidebarOpen(false); }} />
           <SidebarItem icon={<TrendingDown size={20} />} label="ব্যয়ের তালিকা" active={activeTab === 'expense'} onClick={() => { setActiveTab('expense'); setSidebarOpen(false); }} />
@@ -357,10 +311,9 @@ const App: React.FC = () => {
         {activeTab === 'dashboard' && (
           <div className="space-y-6 animate-fadeIn">
             <header><h2 className="text-2xl font-bold text-slate-800">ওভারভিউ</h2></header>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <StatCard label="মোট আয়" value={totalIncome} icon={<TrendingUp />} color="bg-emerald-500" />
               <StatCard label="মোট ব্যয়" value={totalExpense} icon={<TrendingDown />} color="bg-rose-500" />
-              <StatCard label="অর্ডার সেলস" value={totalOrderSales} icon={<Package />} color="bg-orange-500" />
               <StatCard label="ডলার প্রফিট" value={totalDollarProfit} icon={<TrendingUp />} color="bg-indigo-500" />
             </div>
             
@@ -379,7 +332,7 @@ const App: React.FC = () => {
                         </div>
                       </div>
                       <p className={`font-black ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {t.type === TransactionType.INCOME ? '+' : '-'}৳{t.amount.toLocaleString()}
+                        {t.type === TransactionType.INCOME ? '+' : '-'}৳{t.amount.toLocaleString(undefined, { minimumFractionDigits: 1 })}
                       </p>
                     </div>
                   ))}
@@ -393,7 +346,7 @@ const App: React.FC = () => {
                         <div className="text-blue-500">{getAccountIcon(acc.type)}</div>
                         <p className="font-bold text-slate-700">{acc.name}</p>
                       </div>
-                      <p className="font-black text-slate-800">৳{getAccountBalance(acc.name).toLocaleString()}</p>
+                      <p className="font-black text-slate-800">৳{getAccountBalance(acc.name).toLocaleString(undefined, { minimumFractionDigits: 1 })}</p>
                     </div>
                   ))}
                 </div>
@@ -402,7 +355,6 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Income & Expense View */}
         {(activeTab === 'income' || activeTab === 'expense') && (
           <div className="space-y-6 animate-fadeIn">
             <header><h2 className="text-2xl font-bold text-slate-800">{activeTab === 'income' ? 'আয়ের তালিকা' : 'ব্যয়ের তালিকা'}</h2></header>
@@ -417,14 +369,14 @@ const App: React.FC = () => {
 
                 addTransaction(
                   activeTab === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE,
-                  Number(amount.value),
+                  parseFloat(amount.value),
                   category.value,
                   note.value || "",
                   account.value
                 );
                 form.reset();
               }}>
-                <input name="amount" type="number" placeholder="টাকার পরিমাণ" required className="px-4 py-2 border rounded-lg text-sm" />
+                <input name="amount" type="number" step="any" placeholder="টাকার পরিমাণ (উদা: 127.6)" required className="px-4 py-2 border rounded-lg text-sm" />
                 <input name="category" placeholder="ক্যাটাগরি" required className="px-4 py-2 border rounded-lg text-sm" />
                 <select name="account" required className="px-4 py-2 border rounded-lg text-sm bg-white">
                   <option value="">অ্যাকাউন্ট সিলেক্ট</option>
@@ -446,7 +398,7 @@ const App: React.FC = () => {
                         <td className="py-4 text-xs text-slate-500">{t.date}</td>
                         <td className="py-4 font-bold text-slate-700">{t.category}</td>
                         <td className="py-4 text-sm text-slate-600">{t.accountName}</td>
-                        <td className={`py-4 text-right font-black ${activeTab === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>৳{t.amount.toLocaleString()}</td>
+                        <td className={`py-4 text-right font-black ${activeTab === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>৳{t.amount.toLocaleString(undefined, { minimumFractionDigits: 1 })}</td>
                         <td className="py-4 text-right"><button onClick={() => deleteTransaction(t.id)} className="text-slate-200 hover:text-rose-500"><Trash2 size={16}/></button></td>
                       </tr>
                     ))}
@@ -457,7 +409,132 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Other Tabs remain identical to previous functional version but with bugfixes applied to forms */}
+        {activeTab === 'dollar' && (
+          <div className="space-y-6 animate-fadeIn">
+             <header><h2 className="text-2xl font-bold text-slate-800">ডলার ট্রেডিং</h2></header>
+              
+              {/* Dollar Calculator Tool */}
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 shadow-sm">
+                <div className="flex items-center gap-2 mb-4 text-blue-700">
+                  <Calculator size={20} />
+                  <h3 className="font-bold">কুইক ক্যালকুলেটর</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">পরিমাণ ($)</label>
+                    <input value={calcAmount} onChange={(e) => setCalcAmount(e.target.value)} type="number" step="any" placeholder="0.00" className="w-full px-4 py-2 border rounded-lg text-sm bg-white" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">রেট (৳)</label>
+                    <input value={calcRate} onChange={(e) => setCalcRate(e.target.value)} type="number" step="any" placeholder="0.00" className="w-full px-4 py-2 border rounded-lg text-sm bg-white" />
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <div className="bg-white px-4 py-2 border rounded-lg h-[40px] flex items-center justify-between shadow-inner">
+                      <span className="text-[10px] font-bold text-slate-400">মোট:</span>
+                      <span className="font-black text-blue-700">৳{(parseFloat(calcAmount || '0') * parseFloat(calcRate || '0')).toLocaleString(undefined, { minimumFractionDigits: 1 })}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Card title="নতুন লেনদেন">
+                <form className="grid grid-cols-1 md:grid-cols-4 gap-4" onSubmit={(e) => {
+                  e.preventDefault();
+                  const form = e.target as HTMLFormElement;
+                  const buy = form.elements.namedItem('buy') as HTMLInputElement;
+                  const qty = form.elements.namedItem('qty') as HTMLInputElement;
+                  const acc = form.elements.namedItem('acc') as HTMLSelectElement;
+                  addDollarTx(parseFloat(buy.value), undefined, parseFloat(qty.value), "", acc.value);
+                  form.reset();
+                }}>
+                  <input name="buy" type="number" step="any" placeholder="৳ বাই রেট" required className="px-4 py-2 border rounded-lg text-sm" />
+                  <input name="qty" type="number" step="any" placeholder="$ পরিমাণ" required className="px-4 py-2 border rounded-lg text-sm" />
+                  <select name="acc" required className="px-4 py-2 border rounded-lg text-sm bg-white">
+                     <option value="">অ্যাকাউন্ট সিলেক্ট</option>
+                     {accounts.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
+                  </select>
+                  <button type="submit" className="bg-indigo-600 text-white rounded-lg font-bold text-sm">বাই করুন</button>
+                </form>
+              </Card>
+              
+              <Card title="ট্রেডিং টেবিল">
+                <div className="overflow-x-auto">
+                   <table className="w-full text-left">
+                     <thead className="text-[10px] uppercase text-slate-400 border-b">
+                        <tr><th className="pb-3">তারিখ</th><th className="pb-3">পরিমাণ</th><th className="pb-3 text-right">বাই</th><th className="pb-3 text-right">সেল</th><th className="pb-3 text-right">অ্যাকশন</th></tr>
+                     </thead>
+                     <tbody>
+                       {dollarTransactions.map(t => (
+                         <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50">
+                            <td className="py-4 text-xs text-slate-500">{t.date}</td>
+                            <td className="py-4 font-bold text-slate-800">${t.quantity.toLocaleString(undefined, { minimumFractionDigits: 1 })}</td>
+                            <td className="py-4 text-right">৳{t.buyRate.toLocaleString(undefined, { minimumFractionDigits: 1 })}</td>
+                            <td className="py-4 text-right">
+                               {t.sellRate ? <span className="text-emerald-600 font-bold">৳{t.sellRate.toLocaleString(undefined, { minimumFractionDigits: 1 })}</span> : 
+                                 editingSellId === t.id ? (
+                                   <div className="flex gap-1 justify-end">
+                                      <input autoFocus type="number" step="any" onChange={(e) => setTempSellRate(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && updateDollarSellRate(t.id, parseFloat(tempSellRate))} className="w-16 border rounded text-xs px-2 py-1" placeholder="রেট" />
+                                      <button onClick={() => updateDollarSellRate(t.id, parseFloat(tempSellRate))} className="text-emerald-500"><CheckCircle size={16}/></button>
+                                   </div>
+                                 ) : (
+                                   <button onClick={() => setEditingSellId(t.id)} className="text-[10px] font-bold bg-blue-50 text-blue-600 px-3 py-1 rounded border border-blue-100 hover:bg-blue-600 hover:text-white transition-all">Sell Now</button>
+                                 )
+                               }
+                            </td>
+                            <td className="py-4 text-right"><button onClick={() => deleteDollarTx(t.id)} className="text-slate-200 hover:text-rose-500"><Trash2 size={16}/></button></td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
+                </div>
+              </Card>
+          </div>
+        )}
+
+        {activeTab === 'personal_dollar' && (
+          <div className="space-y-6 animate-fadeIn">
+            <header><h2 className="text-2xl font-bold text-slate-800">পার্সোনাল ডলার ইউজ</h2></header>
+            <Card title="ডলার ব্যবহারের তথ্য">
+              <form className="grid grid-cols-1 md:grid-cols-4 gap-4" onSubmit={(e) => {
+                e.preventDefault();
+                const form = e.target as HTMLFormElement;
+                const amount = form.elements.namedItem('amount') as HTMLInputElement;
+                const rate = form.elements.namedItem('rate') as HTMLInputElement;
+                const purpose = form.elements.namedItem('purpose') as HTMLInputElement;
+                addPersonalDollar(parseFloat(amount.value), parseFloat(rate.value), purpose.value, "");
+                form.reset();
+              }}>
+                <input name="amount" type="number" step="any" placeholder="পরিমাণ ($)" required className="px-4 py-2 border rounded-lg text-sm" />
+                <input name="rate" type="number" step="any" placeholder="রেট (৳)" required className="px-4 py-2 border rounded-lg text-sm" />
+                <input name="purpose" placeholder="উদ্দেশ্য" required className="px-4 py-2 border rounded-lg text-sm" />
+                <button type="submit" className="bg-blue-600 text-white rounded-lg font-bold text-sm">সেভ করুন</button>
+              </form>
+            </Card>
+            <Card title="ইউসেজ লিস্ট">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="text-[10px] uppercase text-slate-400 border-b">
+                    <tr><th className="pb-3">তারিখ</th><th className="pb-3">উদ্দেশ্য</th><th className="pb-3 text-right">ডলার ($)</th><th className="pb-3 text-right">রেট (৳)</th><th className="pb-3 text-right">মোট (৳)</th><th className="pb-3 text-right">অ্যাকশন</th></tr>
+                  </thead>
+                  <tbody>
+                    {personalDollarUsage.map(p => (
+                      <tr key={p.id} className="border-b border-slate-50">
+                        <td className="py-4 text-xs text-slate-500">{p.date}</td>
+                        <td className="py-4 font-bold text-slate-700">{p.purpose}</td>
+                        <td className="py-4 text-right font-medium">${p.amount.toLocaleString(undefined, { minimumFractionDigits: 1 })}</td>
+                        <td className="py-4 text-right">৳{p.rate.toLocaleString(undefined, { minimumFractionDigits: 1 })}</td>
+                        <td className="py-4 text-right font-black">৳{(p.amount * p.rate).toLocaleString(undefined, { minimumFractionDigits: 1 })}</td>
+                        <td className="py-4 text-right"><button onClick={() => deletePersonalDollar(p.id)} className="text-slate-200 hover:text-rose-500"><Trash2 size={16}/></button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* Other Tabs (Vault, Accounts, AI) - keeping for logic consistency */}
         {activeTab === 'vault' && (
           <div className="space-y-6 animate-fadeIn">
             <header><h2 className="text-2xl font-bold text-slate-800">পাসওয়ার্ড ভল্ট</h2></header>
@@ -480,7 +557,7 @@ const App: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {vault.map(item => (
                 <div key={item.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative group">
-                  <button onClick={() => deleteVaultItem(item.id)} className="absolute top-4 right-4 text-slate-200 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={18}/></button>
+                  <button onClick={() => deleteVaultItem(item.id)} className="absolute top-4 right-4 text-slate-200 hover:text-rose-500 opacity-0 group-hover:opacity-100"><Trash2 size={18}/></button>
                   <div className="flex items-center gap-3 mb-4">
                     <div className="p-3 bg-blue-50 text-blue-600 rounded-xl"><Lock size={20}/></div>
                     <h4 className="font-bold text-slate-800 truncate pr-8">{item.siteName}</h4>
@@ -503,106 +580,6 @@ const App: React.FC = () => {
                 </div>
               ))}
             </div>
-          </div>
-        )}
-
-        {/* ... (Keep other tabs consistent, fix forms similarly to Income/Expense) */}
-        {activeTab === 'personal_dollar' && (
-          <div className="space-y-6 animate-fadeIn">
-            <header><h2 className="text-2xl font-bold text-slate-800">পার্সোনাল ডলার ইউজ</h2></header>
-            <Card title="ডলার ব্যবহারের তথ্য">
-              <form className="grid grid-cols-1 md:grid-cols-4 gap-4" onSubmit={(e) => {
-                e.preventDefault();
-                const form = e.target as HTMLFormElement;
-                const amount = form.elements.namedItem('amount') as HTMLInputElement;
-                const rate = form.elements.namedItem('rate') as HTMLInputElement;
-                const purpose = form.elements.namedItem('purpose') as HTMLInputElement;
-                addPersonalDollar(Number(amount.value), Number(rate.value), purpose.value, "");
-                form.reset();
-              }}>
-                <input name="amount" type="number" placeholder="পরিমাণ ($)" required className="px-4 py-2 border rounded-lg text-sm" />
-                <input name="rate" type="number" placeholder="রেট (৳)" required className="px-4 py-2 border rounded-lg text-sm" />
-                <input name="purpose" placeholder="উদ্দেশ্য" required className="px-4 py-2 border rounded-lg text-sm" />
-                <button type="submit" className="bg-blue-600 text-white rounded-lg font-bold text-sm">সেভ করুন</button>
-              </form>
-            </Card>
-            <Card title="ইউসেজ লিস্ট">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="text-[10px] uppercase text-slate-400 border-b">
-                    <tr><th className="pb-3">তারিখ</th><th className="pb-3">উদ্দেশ্য</th><th className="pb-3 text-right">ডলার ($)</th><th className="pb-3 text-right">রেট (৳)</th><th className="pb-3 text-right">মোট (৳)</th><th className="pb-3 text-right">অ্যাকশন</th></tr>
-                  </thead>
-                  <tbody>
-                    {personalDollarUsage.map(p => (
-                      <tr key={p.id} className="border-b border-slate-50">
-                        <td className="py-4 text-xs text-slate-500">{p.date}</td>
-                        <td className="py-4 font-bold text-slate-700">{p.purpose}</td>
-                        <td className="py-4 text-right font-medium">${p.amount}</td>
-                        <td className="py-4 text-right">৳{p.rate}</td>
-                        <td className="py-4 text-right font-black">৳{(p.amount * p.rate).toLocaleString()}</td>
-                        <td className="py-4 text-right"><button onClick={() => deletePersonalDollar(p.id)} className="text-slate-200 hover:text-rose-500"><Trash2 size={16}/></button></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {activeTab === 'dollar' && (
-          <div className="space-y-6 animate-fadeIn">
-             <header><h2 className="text-2xl font-bold text-slate-800">ডলার ট্রেডিং</h2></header>
-              <Card title="নতুন লেনদেন">
-                <form className="grid grid-cols-1 md:grid-cols-4 gap-4" onSubmit={(e) => {
-                  e.preventDefault();
-                  const form = e.target as HTMLFormElement;
-                  const buy = form.elements.namedItem('buy') as HTMLInputElement;
-                  const qty = form.elements.namedItem('qty') as HTMLInputElement;
-                  const acc = form.elements.namedItem('acc') as HTMLSelectElement;
-                  addDollarTx(Number(buy.value), undefined, Number(qty.value), "", acc.value);
-                  form.reset();
-                }}>
-                  <input name="buy" type="number" placeholder="৳ বাই রেট" required className="px-4 py-2 border rounded-lg text-sm" />
-                  <input name="qty" type="number" placeholder="$ পরিমাণ" required className="px-4 py-2 border rounded-lg text-sm" />
-                  <select name="acc" required className="px-4 py-2 border rounded-lg text-sm bg-white">
-                     <option value="">অ্যাকাউন্ট সিলেক্ট</option>
-                     {accounts.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
-                  </select>
-                  <button type="submit" className="bg-indigo-600 text-white rounded-lg font-bold text-sm">বাই করুন</button>
-                </form>
-              </Card>
-              <Card title="ট্রেডিং টেবিল">
-                <div className="overflow-x-auto">
-                   <table className="w-full text-left">
-                     <thead className="text-[10px] uppercase text-slate-400 border-b">
-                        <tr><th className="pb-3">তারিখ</th><th className="pb-3">পরিমাণ</th><th className="pb-3 text-right">বাই</th><th className="pb-3 text-right">সেল</th><th className="pb-3 text-right">অ্যাকশন</th></tr>
-                     </thead>
-                     <tbody>
-                       {dollarTransactions.map(t => (
-                         <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50">
-                            <td className="py-4 text-xs text-slate-500">{t.date}</td>
-                            <td className="py-4 font-bold text-slate-800">${t.quantity}</td>
-                            <td className="py-4 text-right">৳{t.buyRate}</td>
-                            <td className="py-4 text-right">
-                               {t.sellRate ? <span className="text-emerald-600 font-bold">৳{t.sellRate}</span> : 
-                                 editingSellId === t.id ? (
-                                   <div className="flex gap-1 justify-end">
-                                      <input autoFocus type="number" onChange={(e) => setTempSellRate(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && updateDollarSellRate(t.id, Number(tempSellRate))} className="w-16 border rounded text-xs px-2 py-1" placeholder="রেট" />
-                                      <button onClick={() => updateDollarSellRate(t.id, Number(tempSellRate))} className="text-emerald-500"><CheckCircle size={16}/></button>
-                                   </div>
-                                 ) : (
-                                   <button onClick={() => setEditingSellId(t.id)} className="text-[10px] font-bold bg-blue-50 text-blue-600 px-3 py-1 rounded border border-blue-100 hover:bg-blue-600 hover:text-white transition-all">Sell Now</button>
-                                 )
-                               }
-                            </td>
-                            <td className="py-4 text-right"><button onClick={() => deleteDollarTx(t.id)} className="text-slate-200 hover:text-rose-500"><Trash2 size={16}/></button></td>
-                         </tr>
-                       ))}
-                     </tbody>
-                   </table>
-                </div>
-              </Card>
           </div>
         )}
 
@@ -642,7 +619,7 @@ const App: React.FC = () => {
                   </div>
                   <div className="bg-blue-600 p-4 rounded-xl text-white shadow-md shadow-blue-100">
                     <p className="text-[10px] font-bold opacity-70 uppercase mb-1">ব্যালেন্স</p>
-                    <p className="text-2xl font-black">৳{getAccountBalance(acc.name).toLocaleString()}</p>
+                    <p className="text-2xl font-black">৳{getAccountBalance(acc.name).toLocaleString(undefined, { minimumFractionDigits: 1 })}</p>
                   </div>
                 </div>
               ))}
@@ -650,7 +627,6 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* AI Assistant logic */}
         {activeTab === 'ai' && (
           <div className="space-y-6 animate-fadeIn h-full flex flex-col">
             <header><h2 className="text-2xl font-bold text-slate-800">এআই অ্যাসিস্ট্যান্ট</h2></header>
