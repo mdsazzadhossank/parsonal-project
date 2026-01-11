@@ -3,7 +3,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, Wallet, TrendingDown, Lock, Bot, Trash2, Eye, EyeOff, Menu, X, 
   RefreshCw, TrendingUp, CreditCard, Phone, Building2, Coins, 
-  ShoppingBag, AlertCircle, CheckCircle, XCircle, Send, KeyRound, LogIn, Cloud
+  ShoppingBag, AlertCircle, CheckCircle, XCircle, Send, KeyRound, LogIn, Cloud,
+  WifiOff
 } from 'lucide-react';
 import { Transaction, TransactionType, VaultItem, AppState, DollarTransaction, Account, AccountType, PersonalDollarUsage } from './types';
 import { getFinancialAdvice } from './services/gemini';
@@ -55,7 +56,15 @@ const StatCard: React.FC<{ label: string; value: number; icon: React.ReactNode; 
 );
 
 const App: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => sessionStorage.getItem('is_auth') === 'true');
+  const [initError, setInitError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem('is_auth') === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
+  
   const [loginPass, setLoginPass] = useState('');
   const [loginError, setLoginError] = useState(false);
   const [showLoginPass, setShowLoginPass] = useState(false);
@@ -91,6 +100,7 @@ const App: React.FC = () => {
         setAccounts(Array.isArray(data.accounts) ? data.accounts : []);
         setDbStatus('connected');
       } catch (e) {
+        console.error("Initialization error:", e);
         setDbStatus('offline');
       } finally {
         setIsSyncing(false);
@@ -289,6 +299,22 @@ const App: React.FC = () => {
 
   const togglePassword = (id: string) => setShowPasswordMap(prev => ({ ...prev, [id]: !prev[id] }));
 
+  // Basic Error display if initialization fails
+  if (initError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-6 text-center">
+        <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-rose-100 max-w-md">
+          <AlertCircle className="text-rose-500 w-16 h-16 mx-auto mb-4" />
+          <h2 className="text-2xl font-black text-slate-800 mb-2">সিস্টেম এরর</h2>
+          <p className="text-slate-500 mb-6">{initError}</p>
+          <button onClick={() => window.location.reload()} className="bg-blue-600 text-white px-8 py-3 rounded-2xl font-bold flex items-center gap-2 mx-auto">
+            <RefreshCw size={20} /> রিলোড দিন
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
@@ -429,6 +455,7 @@ const App: React.FC = () => {
                       <p className="font-black text-slate-800 text-sm lg:text-base whitespace-nowrap ml-2">৳{getAccountBalance(acc.name).toLocaleString()}</p>
                     </div>
                   ))}
+                  {accounts.length === 0 && <div className="py-8 text-center text-slate-400 text-xs">কোনো অ্যাকাউন্ট যোগ করা হয়নি</div>}
                 </div>
               </Card>
             </div>

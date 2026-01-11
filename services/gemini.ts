@@ -19,9 +19,15 @@ export const getFinancialAdvice = async (transactions: Transaction[], userMessag
   `;
 
   try {
-    // Initialize the AI client inside the function. 
-    // This ensures it doesn't crash the whole app if the API key is missing at load time.
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // Safety check for process.env
+    const apiKey = typeof process !== 'undefined' && process.env ? process.env.API_KEY : null;
+    
+    if (!apiKey) {
+      console.warn("Gemini API Key is missing. AI features will not work.");
+      return "এআই অ্যাসিস্ট্যান্টের জন্য এপিআই কি (API Key) সেট করা নেই।";
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
     
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -33,8 +39,7 @@ export const getFinancialAdvice = async (transactions: Transaction[], userMessag
       `,
     });
     
-    // Using .text property directly as per guidelines
-    return response.text;
+    return response.text || "আমি দুঃখিত, কোনো উত্তর তৈরি করা সম্ভব হয়নি।";
   } catch (error) {
     console.error("Gemini API Error:", error);
     return "দুঃখিত, এই মুহূর্তে এআই অ্যাসিস্ট্যান্ট কাজ করছে না। দয়া করে পরে চেষ্টা করুন।";
